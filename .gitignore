@@ -1,0 +1,29 @@
+# Central build products
+/build/
+/impl/
+/dist/
+/tools/downloads/
+/tools/toolchains/
+/microrom.mem
+/nanorom.mem
+/rom.hex
+/*.json
+/*.vcd
+/*.vvp
+/*.fs
+
+# Firmware products
+/firmware/*.o
+/firmware/*.elf
+/firmware/*.bin
+/firmware/*.hex
+
+# Editor and OS noise
+*~
+*.bak
+*.tmp
+.history/
+
+# Python interpreter caches
+__pycache__/
+*.py[cod]
