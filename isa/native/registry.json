@@ -1,0 +1,23 @@
+{
+  "schema": "m64k.native.registry/v2",
+  "family": "M64K-native",
+  "contract_schema": "m64k.native.contract/v2",
+  "public_profiles": [
+    {
+      "version": "M64K-v1",
+      "path": "m64k-native-v1.json",
+      "status": "development"
+    }
+  ],
+  "release_gate": {
+    "status": "closed",
+    "backend_ready": false,
+    "blocking_decisions": [
+      "Complete and approve the closed MC68060 semantic inventory and every multidimensional disposition row.",
+      "Freeze the complete fixed32 and extended instruction encoding without collisions or invented provisional opcodes.",
+      "Obtain an official ELF machine identifier and freeze the complete RELA relocation namespace.",
+      "Produce passing assembler, disassembler, compiler, linker, model, and RTL evidence against the frozen contract."
+    ],
+    "semantic_rule": "M64K-v1 is native 64-bit. MC68060 is a mandatory semantic audit baseline and never a binary, ABI, encoding, exception-frame, bus, or assembly-source compatibility claim."
+  }
+}

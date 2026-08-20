@@ -1,70 +1,108 @@
 # M64K
 
-M64K is an open, synthesizable processor and system architecture. It begins with rigorously audited Motorola 68000-family compatibility profiles and evolves into a native 64-bit ISA with wider addressing, virtual memory, floating point, scalable vectors, matrix operations, coherent multiprocessing, and simultaneous multithreading.
+M64K is an open, synthesizable native 64-bit processor and system architecture designed for high-performance FPGA prototypes and eventual ASIC implementation. The architecture targets out-of-order superscalar execution, virtual memory, IEEE-754 floating point, directory-based cache coherence, multiprocessing, simultaneous multithreading, and future scalable-vector and matrix extensions.
 
-The current first-party RTL is an in-order M00 implementation under active conformance work. It executes substantial portions of the MC68000 ISA, but the machine-readable audit still contains partial contracts. Passing software workloads does not make a processor profile complete. M10, M20, M30, M40, M60, native M64K, M64K-V, M64K-M, SMP, and SMT are roadmap targets rather than current feature claims.
+M64K is a new ISA. It does not execute M68K binaries and does not reuse the M68K ELF ABI, effective-address modes, exception frames, bus protocol, or processor modes. The complete MC68060 computational instruction inventory is the semantic floor for M64K v1, but every operation uses native 64-bit registers, operand forms, encodings, traps, and memory semantics. Programs must be assembled or compiled specifically for M64K.
 
-Reset and current execution are big-endian. Native M64K will be a distinct 64-bit execution domain; existing M68K binaries retain their documented 32-bit behavior. The initial native target uses 48-bit canonical virtual addresses and parameterized 32–48-bit physical addresses. Full little-endian execution remains a separately specified future extension.
+## Current status
+
+The project is establishing the unified M64K v1 architecture and implementation contracts. No native processor core, toolchain backend, firmware, or Linux port is complete yet. A historical M00 compatibility implementation is preserved on the local archive branch and tag `archive/m00-compat-wip-2026-08-19`; it is not part of the active product or default build.
+
+The first product configuration targets:
+
+- four cores and two simultaneous hardware threads per core;
+- a four-wide out-of-order core with precise retirement;
+- 48-bit canonical virtual addresses and a discoverable 36-to-48-bit physical-address width behind a 64-bit architectural address model;
+- private L1 instruction/data and unified L2 caches;
+- a shared banked L3 cache with directory-based MESI coherence;
+- a scalar IEEE-754 binary32/binary64 FPU with fused multiply-add;
+- a big-endian LP64D software ABI;
+- technology-independent RTL with explicit FPGA and ASIC memory/cell bindings.
+
+These are design targets, not implementation claims. Frequency, area, power, cache capacity, and queue sizing remain subject to reproducible synthesis, timing, placement, routing, and workload measurements.
 
 ## Repository layout
 
 ```text
-rtl/m64k/        board-neutral production RTL
-sim/m68k/m00/        Verilator unit, matrix, fault, and integration tests
-isa/             machine-readable instruction and audit contracts
-docs/m64k/       architecture, implementation, and verification documents
-scripts/         decoder generation and conformance-audit tools
-third_party/     unmodified external reference IP
-tools/           ignored local downloads and tool installations
+isa/native/          versioned machine-readable ISA and ABI contracts
+docs/m64k/           normative architecture and implementation documentation
+rtl/core/            native core and architectural contract RTL
+rtl/interfaces/      SMP/SMT-aware memory, interrupt, and retirement interfaces
+rtl/memory/          cache, MMU, TLB, and technology-neutral memory integration
+rtl/coherence/       directory and coherence protocol RTL
+rtl/interconnect/    scalable on-chip transport
+rtl/soc/             board-neutral system integration
+verification/        formal, differential, coverage, CDC/RDC, and equivalence collateral
+sim/                 architectural and RTL simulation
+asic/                synthesis, DFT, power, timing, and physical-flow integration
+fpga/                target-specific FPGA wrappers and constraints
+firmware/            native Machine-mode boot firmware
+scripts/             contract validation and generated-artifact tools
+tools/sources/       ignored Linux, GCC, and binutils-gdb worktrees
 ```
 
-Platform-specific RTL, vendor projects, firmware, and operating-system integration will be added only against the board-neutral M64K platform contract. The removed predecessor-board implementation is not part of this repository's active architecture.
+Large build products, toolchains, source checkouts, FPGA outputs, traces, and disk images are not tracked.
 
-## Build and verification
+## Architecture baseline
 
-Verilator 5 or newer and Python 3 are required.
+- 32 writable unified 64-bit general-purpose registers.
+- Fixed 32-bit base instruction encoding aligned to four bytes.
+- `.B`, `.W`, and `.L` register writes zero-extend; `.Q` writes all 64 bits.
+- Explicit signed loads and signed widening operations.
+- Hybrid condition model with renameable NZCV, scalar predicates, and a separate explicit `X` carry-chain state.
+- User, Supervisor, and Machine privilege levels.
+- CSR-based precise trap state rather than hardware-created variable stack frames.
+- TSO memory ordering and coherent 8/16/32/64-bit atomic operations.
+- A single ELF64 big-endian LP64D ABI. M64K will request a distinct official ELF machine identifier and will never reuse `EM_68K`.
+
+The complete normative contracts, rationale, and implementation gates are indexed from [docs/m64k/README.md](docs/m64k/README.md).
+
+## Current validation
+
+Run the complete native-contract development gate with:
 
 ```sh
-make
+make check
 ```
 
-The default target runs the first-party M64K regression. It does not build any retired board target.
+It validates the M64K v1 machine-readable contract, executes the independent scalar semantic model tests, lints every native RTL interface with all Verilator warnings fatal, verifies the structural integrity of the still-draft semantic-cut-line inventory, and verifies the persistent primary-manual cache. This gate does not claim that the semantic audit is closed.
 
-Focused consistency gates are also available:
+Official manuals are cached under the ignored `references/manuals/` directory because their copyright does not grant this project redistribution rights. Restore or verify the exact reviewed documents using their official URLs and recorded SHA-256 values:
 
 ```sh
-make decode-check
-make audit-check
-make -C sim/m68k/m00 lint
+make manuals-fetch
+make manuals-check
 ```
 
-`decode-check` proves that the generated SystemVerilog decoder matches the declarative ISA database. `audit-check` verifies inventory counts, format ownership, evidence fields, and implementation status. `make -C sim/m68k/m00 test` runs the complete current Verilator suite, including opcode matrices, effective-address aliases, exception paths, injected bus faults, memory ordering, and precise-state suppression.
+`make full-build` is intentionally blocked until the instruction encoding, semantic-lineage matrix, official ELF identity, relocation ABI, binutils backend, and compiler backend are complete. It never substitutes an M68K toolchain or payload to report false progress.
 
-Build artifacts are written under `build/` and are not tracked.
+## Software repositories
 
-## Current verification status
+The supported local workspace keeps independent upstream-derived repositories under `tools/sources/`:
 
-The M00 audit is intentionally conservative:
-
-```sh
-make audit-check
+```text
+tools/sources/linux          Linux 6.18 development line
+tools/sources/gcc            GCC 16.2 development line
+tools/sources/binutils-gdb   binutils 2.47 development line
 ```
 
-At the current repository state it inventories 152 decoder patterns and 56 instruction formats. A format is marked `verified` only when its full documented M00 contract is covered; any missing legal encoding, effective address, flag, privilege, exception, alignment, or injected-fault dimension keeps it `partial`.
+Native binutils support begins only after the closed MC68060 cut-line inventory, instruction encodings, ELF identity, relocations, and psABI are frozen. GCC follows a working assembler/linker/disassembler. Native firmware and a freestanding payload follow the toolchain; `arch/m64k` is created only after the hardware-visible exception, MMU, atomic, and boot contracts execute correctly. Musl will be introduced for native Linux userspace when that milestone is reached.
 
-The MC68000 Programmer's Reference Manual, MC68000 User's Manual, and applicable Motorola/NXP errata are the primary sources for compatibility behavior. Tests, existing RTL, compiler output, and observed software behavior are supporting evidence only.
+## Engineering policy
 
-## Architecture and roadmap
+- Architecture is specified before RTL or toolchain implementation.
+- One assembly statement encodes one architectural instruction; hidden multi-instruction expansion cannot claim ISA coverage.
+- Common instructions decode directly to typed uops, while complex architectural instructions may use reviewed internal microcode.
+- Tests and software traces are evidence, never architectural specifications.
+- First-party warnings are errors.
+- Unsupported encodings trap; the project does not add fake feature paths or placeholder implementations.
+- Architectural effects become visible only at precise retirement.
+- All public interfaces identify core, hardware thread, transaction, privilege, and address space where relevant.
+- Performance changes require timing, area, power, and equivalence evidence.
+- Open PDK results are exploratory and never presented as production-foundry sign-off.
 
-- [Architecture documentation](docs/m64k/README.md)
-- [Architecture direction](docs/m64k/architecture.md)
-- [Implementation plan](docs/m64k/implementation-plan.md)
-- [M00 conformance audit](docs/m64k/m00-conformance-audit.md)
-- [Repository and upstream topology](docs/m64k/repository-topology.md)
-- [FPGA platform requirements](docs/m64k/platform-requirements.md)
-
-The hardware repository is `m64k-foundation/m64k`. Linux, GCC, binutils-gdb, newlib-cygwin, uClibc-ng, and musl use separate upstream-derived repositories under the same organization. Exact initial branch points and ownership boundaries are documented in the repository topology.
+See [AGENTS.md](AGENTS.md) for the mandatory contribution and review rules.
 
 ## Licensing
 
-First-party project code is MIT licensed unless a file states otherwise. The vendored `fx68k` reference core is GPLv3. Every third-party component retains its own copyright and license terms.
+First-party project code is MIT licensed unless a file states otherwise. External repositories and dependencies retain their own licenses.

@@ -1,0 +1,216 @@
+{
+  "schema": "m64k.native.contract/v2",
+  "isa_family": "M64K-native",
+  "isa_version": "M64K-v1",
+  "profile_kind": "native-64-system-profile",
+  "status": "development",
+  "backend_claims": {
+    "semantic_inventory_closed": false,
+    "encoding_frozen": false,
+    "elf_abi_frozen": false,
+    "assembler_ready": false,
+    "disassembler_ready": false,
+    "linker_ready": false,
+    "compiler_backend_ready": false,
+    "linux_uapi_ready": false,
+    "rtl_decoder_ready": false,
+    "backend_ready": false,
+    "blockers": [
+      "The MC68060 instruction corpus is enumerated, but every semantic disposition remains subject to instruction-level review and approval.",
+      "The fixed32 base opcode, extended escape, and operand fields are unallocated.",
+      "The official ELF machine identifier and RELA relocation numbers are unassigned.",
+      "No software backend or RTL decoder may claim readiness before the semantic, encoding, and ABI freezes."
+    ]
+  },
+  "registers": {
+    "general": {"names": "r0-r31", "count": 32, "width_bits": 64, "all_writable": true, "zero_register": null},
+    "floating_point": {"names": "f0-f31", "count": 32, "width_bits": 64, "formats": ["binary32", "binary64"]},
+    "predicates": {"names": "p0-p7", "count": 8, "width_bits": 1, "p0": "hardwired-true-writes-ignored", "writable": "p1-p7", "state_scope": "per-hardware-thread"},
+    "program_counter": {"name": "PC", "width_bits": 64},
+    "condition_state": {
+      "nzcv": {"name": "NZCV", "bits": ["N", "Z", "C", "V"], "width_bits": 4},
+      "extend": {"name": "X", "width_bits": 1, "separate_from_carry": true, "state_scope": "per-hardware-thread", "modified_only_by": ["ADCX", "SBCX", "rotate-through-X"]}
+    }
+  },
+  "scalar_widths": {
+    "address_bits": 64,
+    "integer_operand_bits": [8, 16, 32, 64],
+    "floating_operand_bits": [32, 64],
+    "suffixes": {"B": 8, "W": 16, "L": 32, "Q": 64, "S": 32, "D": 64},
+    "general_register_write": {"B": "zero-extend-8-to-64", "W": "zero-extend-16-to-64", "L": "zero-extend-32-to-64", "Q": "replace-all-64", "explicit_sign_extend": "sign-extend-source-to-64"}
+  },
+  "assembly": {
+    "architectural_statement": "exactly-one-instruction",
+    "multi_instruction_pseudoinstructions": "forbidden",
+    "aliases": "one-to-one-encoding-only",
+    "familiar_m68k_names": "permitted-only-when-m64k-semantics-are-explicitly-equivalent",
+    "source_compatibility_claim": false
+  },
+  "floating_point": {
+    "required": true,
+    "standard": "IEEE-754-2019",
+    "formats": ["binary32", "binary64"],
+    "fused_multiply_add": true,
+    "extended_binary80": false,
+    "packed_decimal": false
+  },
+  "product_topology": {
+    "cores": 4,
+    "hardware_threads_per_core": 2,
+    "architectural_contexts": 8,
+    "identity_contract": "core-hardware-thread-transaction-privilege-domain-address-space-explicit"
+  },
+  "encoding": {
+    "instruction_alignment_bytes": 4,
+    "instruction_byte_order": "big-endian",
+    "base_envelope": {"name": "fixed32", "instruction_bits": 32, "instruction_bytes": 4, "allocation_status": "unfrozen", "opcode_patterns": [], "operand_field_layouts": []},
+    "extended_envelope": {"name": "extended", "status": "reserved-unassigned", "escape_selector": null, "minimum_instruction_bytes": 8, "maximum_instruction_bytes": 16, "length_granule_bytes": 4, "opcode_patterns": [], "reserved_spaces": ["M64K-A", "M64K-FD", "M64K-V", "M64K-M", "FUTURE", "VENDOR"]},
+    "illegal_default": "Every unallocated or malformed base word and every unallocated extended escape traps as IllegalInstruction without architectural effects."
+  },
+  "semantic_baseline": {
+    "compatibility_claim": false,
+    "cut_line": "MC68060",
+    "closed_world": true,
+    "semantic_inventory": {
+      "path": "mc68060-semantic-cut-line.json",
+      "schema": "m64k.mc68060-semantic-cut-line/v2",
+      "required_status_for_closure": "approved"
+    },
+    "coverage_policy": {
+      "computational_baseline_member": "architectural-m64k-analogue-required",
+      "architectural_statement": "exactly-one-instruction",
+      "computational_lineage_dispositions": ["native-analogue"],
+      "legacy_system_lineage_dispositions": ["modern-system-replacement", "rejected"],
+      "architectural_identities": ["distinct-instruction", "one-to-one-alias", "system-facility", "absent", "unresolved"],
+      "lowering_strategies": ["direct-uops", "microcode", "no-execution", "unresolved"],
+      "microcode_visibility": "architecturally-invisible",
+      "alias_expansion": "exactly-one-identical-encoding"
+    },
+    "corpus_closure": {
+      "status": "incomplete",
+      "required_granularity": "one row per instruction or system contract unless every named member has identical behavior in every disposition dimension",
+      "blockers": [
+        "Replace the three aggregate ledger rows with reviewed multidimensional dispositions for every entry in the linked MC68060 semantic inventory.",
+        "Add the applicable MC68020, MC68030, and MC68040 delegated manual identities and errata before approving affected rows."
+      ]
+    },
+    "source_documents": [
+      {"document_id": "MC68060UM", "title": "M68060 User's Manual", "revision": "1", "sha256": "313fd672dfac8f1d1bb580ad61e8e1583a38b07fb4e2891aff7f29ef49d3ef40"},
+      {"document_id": "MC68060UMAD/AD", "title": "Addendum to MC68060 User Manual", "revision": "0", "sha256": "7d43c762f49a3ad3b0856e7425432c44ebd199de0ae619d1b3342429ba91b91a"},
+      {"document_id": "MC68060DE", "title": "MC68060 Production Device Errata", "revision": "4.0", "sha256": "8d396ab5ef7757dfeec84b61ed7ad96e92a1339da59949be6bb90257961f046f"}
+    ],
+    "inventory": [
+      {"baseline_id": "MC68060.scalar-integer-instruction-set", "kind": "instruction-corpus", "member_enumeration_complete": false},
+      {"baseline_id": "MC68060.floating-point-instruction-set", "kind": "instruction-corpus", "member_enumeration_complete": false},
+      {"baseline_id": "MC68060.system-architecture", "kind": "system-corpus", "member_enumeration_complete": false}
+    ],
+    "ledger": [
+      {
+        "baseline_id": "MC68060.scalar-integer-instruction-set",
+        "m64k_contract_ids": ["M64K-v1.scalar-integer-corpus-pending"],
+        "lineage_disposition": "native-analogue",
+        "architectural_identity": "unresolved",
+        "lowering_strategy": "unresolved",
+        "review_status": "inventory-required",
+        "sources": [{"document_id": "MC68060UM", "section": "1.9 Instruction Set Overview, Table 1-3", "pages": "1-16 through 1-20"}],
+        "disposition": {
+          "encoding": {"relation": "rejected", "detail": "M64K does not decode Motorola opcodes; numeric M64K encoding remains unallocated."},
+          "widths": {"relation": "modified", "detail": "M64K adds native 64-bit scalar operands and defines deterministic extension for narrower GPR writes."},
+          "registers": {"relation": "rejected", "detail": "M64K uses thirty-two unified writable 64-bit GPRs instead of data and address register banks."},
+          "operands": {"relation": "modified", "detail": "M64K uses explicit native load/store and register operand forms rather than Motorola effective-address encoding."},
+          "result": {"relation": "modified", "detail": "Individual result rules require instruction-granular audit before allocation."},
+          "flags_predicates": {"relation": "modified", "detail": "M64K uses explicit flag-producing forms, predicates, and a separately renameable persistent X state."},
+          "exceptions": {"relation": "modified", "detail": "M64K uses native precise trap CSRs and priorities; instruction-specific causes remain to be enumerated."},
+          "restart": {"relation": "modified", "detail": "M64K restarts at a precise retirement boundary without Motorola stack frames."},
+          "memory": {"relation": "modified", "detail": "M64K uses 64-bit virtual addresses, explicit load/store operations, big-endian data, and normative TSO."},
+          "privilege": {"relation": "modified", "detail": "M64K U/S/M privilege replaces Motorola supervisor-state contracts."},
+          "state_formats": {"relation": "rejected", "detail": "Motorola SR layouts, exception frames, and binary context formats are not imported."},
+          "implementation": {"relation": "modified", "detail": "Each future M64K opcode will be classified as direct execution or architecturally invisible microcode."}
+        },
+        "verification": ["instruction-granular inventory closure", "directed semantics", "negative encodings", "precise exception injection", "model-to-RTL retirement trace"]
+      },
+      {
+        "baseline_id": "MC68060.floating-point-instruction-set",
+        "m64k_contract_ids": ["M64K-v1.fp32-fp64-corpus-pending"],
+        "lineage_disposition": "native-analogue",
+        "architectural_identity": "unresolved",
+        "lowering_strategy": "unresolved",
+        "review_status": "inventory-required",
+        "sources": [{"document_id": "MC68060UM", "section": "1.9 Instruction Set Overview, Table 1-3", "pages": "1-16 through 1-20"}],
+        "disposition": {
+          "encoding": {"relation": "rejected", "detail": "M64K floating-point encodings are native and remain unallocated."},
+          "widths": {"relation": "modified", "detail": "M64K v1 supports IEEE binary32 and binary64; extended and packed Motorola formats are excluded."},
+          "registers": {"relation": "modified", "detail": "M64K exposes thirty-two 64-bit floating-point registers."},
+          "operands": {"relation": "modified", "detail": "Floating-point operations use native register and explicit load/store operands."},
+          "result": {"relation": "modified", "detail": "IEEE-754 result, NaN, rounding, and FMA rules require operation-granular contracts."},
+          "flags_predicates": {"relation": "modified", "detail": "Floating-point status is native and does not import the Motorola FPSR layout."},
+          "exceptions": {"relation": "modified", "detail": "M64K precise FP trap causes and accrued status require operation-granular specification."},
+          "restart": {"relation": "modified", "detail": "Faulting FP operations retire no destination or status mutation."},
+          "memory": {"relation": "modified", "detail": "FP memory access uses native load/store ordering, alignment, translation, and big-endian representation."},
+          "privilege": {"relation": "modified", "detail": "FP enablement and context ownership use M64K CSRs and U/S/M privilege."},
+          "state_formats": {"relation": "rejected", "detail": "Motorola FP80, packed decimal, FPCR, FPSR, and FPIAR binary formats are not imported."},
+          "implementation": {"relation": "modified", "detail": "Common FP32/FP64 operations execute directly; sequencing-heavy conversion may use invisible microcode after specification."}
+        },
+        "verification": ["operation-granular inventory closure", "IEEE-754 conformance vectors", "NaN and rounding matrix", "precise exception injection", "model-to-RTL retirement trace"]
+      },
+      {
+        "baseline_id": "MC68060.system-architecture",
+        "m64k_contract_ids": ["M64K-v1.native-system-contracts-pending"],
+        "lineage_disposition": "modern-system-replacement",
+        "architectural_identity": "unresolved",
+        "lowering_strategy": "unresolved",
+        "review_status": "inventory-required",
+        "sources": [{"document_id": "MC68060UM", "section": "Sections 2 through 11", "pages": "2-1 through 11-32"}],
+        "disposition": {
+          "encoding": {"relation": "rejected", "detail": "Motorola system instruction encodings are not imported."},
+          "widths": {"relation": "modified", "detail": "M64K architectural addresses and system datapaths are native 64-bit with VA48/PA48 translation."},
+          "registers": {"relation": "rejected", "detail": "M64K defines a new versioned CSR namespace rather than Motorola control-register layouts."},
+          "operands": {"relation": "modified", "detail": "System operations use explicit CSR, address-space, and context operands."},
+          "result": {"relation": "modified", "detail": "System result and serialization rules require contract-level enumeration."},
+          "flags_predicates": {"relation": "rejected", "detail": "System state changes do not implicitly import Motorola condition-code behavior."},
+          "exceptions": {"relation": "rejected", "detail": "M64K uses native cause, value, EPC, privilege, and address-space CSRs instead of vector frames."},
+          "restart": {"relation": "modified", "detail": "TRET validates complete saved CSR state and commits the transition atomically."},
+          "memory": {"relation": "modified", "detail": "M64K specifies VA48/PA48, ASIDs, TSO, coherent atomics, fences, and explicit shootdown."},
+          "privilege": {"relation": "rejected", "detail": "M64K U/S/M and reserved H replace the Motorola supervisor/user model."},
+          "state_formats": {"relation": "rejected", "detail": "Motorola MMU tables, cache registers, vector tables, and exception frames are not imported."},
+          "implementation": {"relation": "modified", "detail": "All core, hardware-thread, transaction, privilege-domain, and address-space identities are explicit for SMP and SMT."}
+        },
+        "verification": ["system-contract inventory closure", "privilege and trap priority matrix", "MMU fault injection", "TSO and atomic formal properties", "SMP and SMT context isolation"]
+      }
+    ]
+  },
+  "conditions": [
+    {"code": 0, "name": "T", "expression": "1"}, {"code": 1, "name": "F", "expression": "0"},
+    {"code": 2, "name": "HI", "expression": "!C && !Z"}, {"code": 3, "name": "LS", "expression": "C || Z"},
+    {"code": 4, "name": "CC", "expression": "!C"}, {"code": 5, "name": "CS", "expression": "C"},
+    {"code": 6, "name": "NE", "expression": "!Z"}, {"code": 7, "name": "EQ", "expression": "Z"},
+    {"code": 8, "name": "VC", "expression": "!V"}, {"code": 9, "name": "VS", "expression": "V"},
+    {"code": 10, "name": "PL", "expression": "!N"}, {"code": 11, "name": "MI", "expression": "N"},
+    {"code": 12, "name": "GE", "expression": "N == V"}, {"code": 13, "name": "LT", "expression": "N != V"},
+    {"code": 14, "name": "GT", "expression": "!Z && (N == V)"}, {"code": 15, "name": "LE", "expression": "Z || (N != V)"}
+  ],
+  "privilege": {
+    "levels": [{"id": "U", "name": "user", "rank": 0}, {"id": "S", "name": "supervisor", "rank": 1}, {"id": "M", "name": "machine", "rank": 2}],
+    "reserved_levels": [{"id": "H", "name": "hypervisor", "status": "reserved-unimplemented"}],
+    "reset": {"execution_domain": "native", "privilege": "M", "translation_enabled": false, "interrupts_enabled": false},
+    "csr_access": {"unknown_or_reserved": "IllegalInstruction", "insufficient_privilege": "PrivilegeViolation", "write_validation": "before-state-mutation", "commit": "precise-retirement-only"}
+  },
+  "atomics": {"required": true, "memory_model": "TSO", "operations": ["compare-exchange", "swap", "fetch-add", "fetch-and", "fetch-or", "fetch-xor"], "operand_bits": [8, 16, 32, 64], "orders": ["relaxed", "acquire", "release", "acq_rel", "seq_cst"], "lr_sc_supported": false, "alignment": "natural-required", "cacheability": "coherent-normal-memory-only", "must_not_cross_cache_line_bytes": 64, "fault_atomicity": "no-partial-memory-effect"},
+  "abi": {
+    "applicability": "required", "status": "draft-not-frozen", "identity": "M64K-v1-LP64D-BE", "data_model": "LP64D", "endianness": "big",
+    "integer_widths": {"char": 8, "short": 16, "int": 32, "long": 64, "long_long": 64, "pointer": 64}, "floating_widths": {"float": 32, "double": 64}, "stack_alignment_bytes": 16,
+    "elf_class": "ELFCLASS64", "elf_data": "ELFDATA2MSB", "elf_machine": "pending-official-EM_M64K-assignment", "relocation_format": "RELA", "relocation_numbers": "unassigned",
+    "calling_convention": {
+      "integer_arguments": ["r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7"], "integer_returns": ["r0", "r1"],
+      "caller_saved": ["r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "r16", "r17"],
+      "callee_saved": ["r18", "r19", "r20", "r21", "r22", "r23", "r24", "r25", "r26", "r27"], "thread_pointer": "r28", "frame_pointer": "r29", "link_register": "r30", "stack_pointer": "r31",
+      "floating_arguments": ["f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7"], "floating_returns": ["f0", "f1"],
+      "floating_caller_saved": ["f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12", "f13", "f14", "f15"],
+      "floating_callee_saved": ["f16", "f17", "f18", "f19", "f20", "f21", "f22", "f23", "f24", "f25", "f26", "f27", "f28", "f29", "f30", "f31"]
+    },
+    "aggregate_calling": {"non_hfa_register_limit_bytes": 16, "non_hfa_register_slots": ["r0", "r1"], "hfa_member_formats": ["binary32", "binary64"], "hfa_member_count_minimum": 1, "hfa_member_count_maximum": 4, "hfa_registers": ["f0", "f1", "f2", "f3"], "sret_threshold_bits": 128, "sret_pointer": "r0", "sret_shifts_explicit_integer_arguments_to": "r1"},
+    "varargs": {"register_save_area_bytes": 128, "general_save_area": {"offset_bytes": 0, "size_bytes": 64, "registers": ["r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7"]}, "floating_save_area": {"offset_bytes": 64, "size_bytes": 64, "registers": ["f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7"]}, "va_list_fields": ["general-register-offset", "floating-register-offset", "overflow-stack-pointer", "register-save-area-pointer"], "unnamed_fp_classification": "floating-register-save-area"}
+  },
+  "mmu": {"translation_required": true, "virtual_address_bits": 48, "physical_address_bits": 48, "canonical_rule": "bits-63:48-equal-bit-47", "asid_bits": 16, "page_table": {"levels": 4, "entry_bits": 64, "entries_per_level": 512, "page_sizes_bytes": [4096, 2097152, 1073741824]}, "tlb_tag_fields": ["asid", "virtual-page-number", "page-size", "global", "translation-generation"]},
+  "cache": {"architectural": {"line_bytes": 64, "memory_order": "TSO"}, "hierarchy_required": true, "implementation_profile": {"l1i": {"capacity_kib_per_core": 32, "ways": 8, "scope": "private"}, "l1d": {"capacity_kib_per_core": 32, "ways": 8, "scope": "private"}, "l2": {"capacity_kib_per_core": 512, "ways": 8, "scope": "private", "blocking": false}, "l3": {"capacity_mib_total": 4, "ways": 8, "banks": 8, "scope": "shared", "inclusion": "non-inclusive"}, "coherence": {"protocol": "MESI", "directory_home": "L3", "sharer_tracking": "per-core-bitmap"}}}
+}

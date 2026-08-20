@@ -1,66 +1,44 @@
-# M64K multicore boot and ISA boundary
+# M64K first-product multicore and SMT profile
 
-Bringing a secondary core online does not require a new instruction encoding.
-It requires a discoverable system-controller contract and firmware that uses
-it. Core 0 starts from the architectural reset vectors; all other cores remain
-held in reset until Core 0 has prepared a trampoline and released each one.
+| Field | Value |
+|---|---|
+| Status | Normative draft |
+| Version | 0.1-development |
+| Scope | First-product four-core coherent SMP and two hardware threads per core |
+| Compatibility | Product topology implements M64K v1 without changing instruction semantics |
 
-## System-controller contract
+The key words **MUST**, **MUST NOT**, **SHOULD**, and **MAY** are interpreted as described by RFC 2119 and RFC 8174.
 
-The future controller exposes one register bank per core containing:
+## Required topology
 
-- presence, running, stopped and fault status;
-- boot PC, initial supervisor SP and one implementation-defined boot argument;
-- reset/enable control with read-back;
-- IPI set, pending and acknowledge state.
+The first-product topology contains four cores, each with two hardware threads. Core and thread identifiers are stable from reset and form a unique pair. Software discovers implemented, enabled, online, and failed states rather than assuming that every physical context is usable.
 
-Core 0 initializes shared memory and the per-core bootstrap data, performs the
-required ordering operation, writes the boot registers and releases reset. A
-secondary core begins at the programmed trampoline, establishes its private
-stack and architectural state, then reports itself online through shared
-memory or an MMIO doorbell. No memory request from a held core may escape into
-the fabric.
+Each hardware thread owns complete scalar registers, `PC`, condition state, privilege and trap CSR state, interrupt mask, `ASID`, translation root, and retirement state. A thread MUST NOT observe speculative, renamed, buffered, or faulted state belonging to its sibling. Cores MAY share frontend, execution, TLB, and cache resources only when tags and arbitration preserve architectural isolation and forward progress.
 
-The reset mechanism is intentionally MMIO rather than an opcode: it remains
-usable by boot ROMs, operating systems and debug hardware, and it does not
-couple the instruction set to one SoC topology.
+## Reset and secondary start
+
+Reset starts core 0, thread 0 in machine privilege. All other contexts remain held and emit no memory transactions. Machine firmware writes a naturally aligned physical entry `PC`, stack pointer, boot argument, and initial privilege for each target, performs the required release fence, then changes that context to runnable through the system controller.
+
+The released context begins with translation disabled, interrupts disabled, clean speculative state, and the programmed values. It validates topology and reports online through coherent memory or a platform doorbell. Core release is an MMIO/platform operation, not an ISA opcode.
 
 ## Interrupts and IPIs
 
-Every core has an independent `m64k_irq_if`. The interrupt controller selects
-a target, priority level and optional vector. Classic devices may autovector;
-IPIs should normally use explicit vectors so software can distinguish their
-purpose. Per-core timers and interrupt masks are separate state. A source must
-hold its request and vector stable until the target acknowledges acceptance.
+Interrupt routing specifies source identity, priority, target privilege, target core, and either a target thread or an explicit any-thread policy. Pending state remains asserted until accepted or acknowledged according to its trigger mode. Re-routing MUST NOT lose a pending interrupt.
 
-Level-triggered IPIs are MMIO events, not instructions. A future wait/wake
-instruction may reduce idle power and latency, but it is an optional M64K-SMP
-facility rather than a prerequisite for SMP boot.
+IPIs use the same routed interrupt mechanism. The first product requires IPI classes sufficient for scheduler reschedule, function call, TLB shootdown, instruction-cache synchronization, stop, and fatal recovery. Per-thread interrupt masks are independent. A stopped or waiting thread remains eligible for configured wake events.
 
-## Instructions SMP actually needs
+## Coherence and atomics
 
-Boot can use ordinary M68k loads, stores and control flow. Correct concurrent
-software additionally needs these architectural primitives:
+All private L1 and L2 caches and the shared L3 participate in one coherent domain for normal write-back memory. Coherence is at 64-byte line granularity and provides the single store order required by TSO. The L3 home directory tracks the owner and a sharer bit for every core; per-core coherence endpoints track which sibling thread issued a request.
 
-- locked `TAS` for the M00 compatibility profile;
-- `CAS` and `CAS2` when the M20 profile is implemented;
-- coherent cache-line ownership for locked/atomic operations;
-- architecturally specified acquire, release and full ordering points;
-- scoped cache and TLB maintenance for page-table changes and shootdowns;
-- a precise privilege, exception and virtualization contract for all control
-  operations.
+Atomics are linearized at the line's coherence home while exclusive ownership is held. Contending atomics eventually make progress under fair arbitration. A cache, core, or thread cannot be declared online until its coherence endpoint, interrupt route, and maintenance acknowledgements are operational.
 
-Established Motorola encodings and semantics take priority. M64K-A/M64K-SMP opcodes
-are introduced only for a capability that the compatible ISA cannot express
-cleanly. Every custom instruction must be represented in the machine-readable
-ISA database and have assembler, disassembler, compiler-intrinsic, privilege,
-exception, memory-ordering and context-switch definitions before firmware or
-an OS depends on it.
+## SMT scheduling and progress
 
-## Coherence dependency
+The two hardware threads may fetch and issue concurrently. Retirement remains in order within each thread; there is no retirement order between threads beyond [memory-model.md](memory-model.md). Shared queues, MSHRs, store buffers, and execution units MUST retain thread identity through response and fault paths.
 
-Releasing multiple cores is not a claim of working SMP. Cached cores require a
-coherent fabric, atomic endpoint, invalidation/snoop protocol and a defined
-memory model. Firmware bring-up may initially run secondaries with caches
-disabled, but Linux SMP is an exit gate only after contention, IPI, TLB
-shootdown and cache-coherence stress tests pass.
+One runnable thread MUST make forward progress when its sibling is halted, waiting, repeatedly faulting, or generating cache misses. Implementations SHOULD provide bounded or reservable queue entries for each thread and SHOULD expose performance counters for sibling interference. Machine firmware can disable either sibling without resetting the other after the target reaches a quiescent architectural boundary.
+
+## Required verification
+
+Product acceptance includes cold and warm secondary boot, asymmetric core availability, all IPI targets, concurrent exceptions on sibling threads, atomics under contention, false sharing, cache-to-cache transfer, TLB shootdown during page reuse, self-modifying code across cores, DMA interaction, thread disable, queue starvation, and sustained eight-thread stress.
