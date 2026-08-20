@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "image": "docker.io/openroad/orfs@sha256:73bd87efa06758865277f347fbc6b932642d8ab21a5430c5ce5480aaa60c27d0",
+  "informational_source_tag": "docker.io/openroad/orfs:latest",
+  "resolved_on": "2026-08-19",
+  "verified_on": "2026-08-20",
+  "platform": "linux/amd64",
+  "observed_tools": {
+    "yosys": "0.68+post",
+    "openroad": "26Q3-1305-gf552262465",
+    "opensta": "3.1.0"
+  },
+  "purpose": "Pinned public Slang, Yosys, ABC, OpenSTA, and OpenROAD environment for M64K silicon exploration"
+}

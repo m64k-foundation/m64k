@@ -27,6 +27,7 @@ These are design targets, not implementation claims. Frequency, area, power, cac
 isa/native/          versioned machine-readable ISA and ABI contracts
 docs/m64k/           normative architecture and implementation documentation
 rtl/core/            native core and architectural contract RTL
+rtl/packages/        minimal architecture-wide RTL types
 rtl/interfaces/      SMP/SMT-aware memory, interrupt, and retirement interfaces
 rtl/memory/          cache, MMU, TLB, and technology-neutral memory integration
 rtl/coherence/       directory and coherence protocol RTL
@@ -67,6 +68,8 @@ make check
 
 It validates the M64K v1 machine-readable contract, executes the independent scalar semantic model tests, lints every native RTL interface with all Verilator warnings fatal, verifies the structural integrity of the still-draft semantic-cut-line inventory, and verifies the persistent primary-manual cache. This gate does not claim that the semantic audit is closed.
 
+RTL tests are compiled incrementally per execution-unit cluster. Re-running `make rtl-execute-test` executes the current integer semantics, tagged integer execution, ordinary shift/rotate, iterative rotate-through-X, multiply, and divide matrices without rebuilding unchanged Verilator models. Clean compilation uses bounded parallel C++ jobs through `VERILATOR_BUILD_JOBS` and must not regress into one separately compiled whole-core executable per test case. Test executables are built under a `.pending` name, validated as executable ELF files, synchronized, and atomically published so an interrupted build cannot replace the last valid binary with a zero-length or partial artifact.
+
 Official manuals are cached under the ignored `references/manuals/` directory because their copyright does not grant this project redistribution rights. Restore or verify the exact reviewed documents using their official URLs and recorded SHA-256 values:
 
 ```sh
@@ -75,6 +78,17 @@ make manuals-check
 ```
 
 `make full-build` is intentionally blocked until the instruction encoding, semantic-lineage matrix, official ELF identity, relocation ABI, binutils backend, and compiler backend are complete. It never substitutes an M68K toolchain or payload to report false progress.
+
+The silicon-frontend gate uses the immutable ORFS container recorded in `containers/asic/tool-lock.json`; no host Slang, Yosys, OpenROAD, or OpenSTA installation is required:
+
+```sh
+make asic-tools
+make silicon-frontend-check
+```
+
+The current frontend targets perform independent Slang elaboration and generic Yosys/ABC synthesis of the native scalar integer ALU, its tagged registered execute pipe, shift/rotate alternatives, pipelined multiplier, and iterative divider. They record input, flow, and output hashes together with structural counts under ignored `build/asic/`.
+
+Target-owned Nangate45 OpenROAD configurations and SDCs now exercise the real multiplier and divider clocked RTL through placement, clock-tree synthesis, routing, extraction, STA, IR analysis, and GDS generation. The first runs are explicitly rejected because the independent fatal log audit found unresolved diagnostics; their preliminary measurements are not accepted PPA or frequency claims. See [asic/physical/README.md](asic/physical/README.md) and the dated rejected-evidence report before running the physical targets.
 
 ## Software repositories
 

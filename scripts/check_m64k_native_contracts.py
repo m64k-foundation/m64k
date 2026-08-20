@@ -61,12 +61,14 @@ CONTRACT_FIELDS = {
     "isa_version",
     "profile_kind",
     "status",
+    "semantic_contracts",
     "backend_claims",
     "registers",
     "scalar_widths",
     "assembly",
     "floating_point",
     "product_topology",
+    "implementation_target",
     "encoding",
     "semantic_baseline",
     "conditions",
@@ -76,6 +78,9 @@ CONTRACT_FIELDS = {
     "mmu",
     "cache",
 }
+
+SHIFT_OPERATION_IDS = ["ASL", "ASR", "LSL", "LSR", "ROL", "ROR", "ROXL", "ROXR"]
+INTEGER_ALU_OPERATION_IDS = ["ADD", "SUB", "ADCX", "SBCX", "AND", "OR", "XOR", "NOT", "NEG", "NEGX", "CMP", "TST"]
 
 
 class ContractError(ValueError):
@@ -119,8 +124,324 @@ def text(value: Any, label: str) -> str:
     return value
 
 
+JSON_SCHEMA_DRAFT = "https://json-schema.org/draft/2020-12/schema"
+JSON_SCHEMA_KEYWORDS = {
+    "$schema",
+    "$id",
+    "title",
+    "type",
+    "const",
+    "enum",
+    "properties",
+    "required",
+    "additionalProperties",
+    "items",
+    "prefixItems",
+    "minItems",
+    "maxItems",
+    "uniqueItems",
+    "minLength",
+    "pattern",
+}
+
+
+def validate_json_schema_definition(schema: Any, label: str, *, root: bool = False) -> None:
+    if not isinstance(schema, dict):
+        raise ContractError(f"{label}: JSON Schema object required")
+    unknown = set(schema) - JSON_SCHEMA_KEYWORDS
+    if unknown:
+        raise ContractError(f"{label}: unsupported JSON Schema keywords {sorted(unknown)}")
+    if root:
+        equal(schema.get("$schema"), JSON_SCHEMA_DRAFT, f"{label}.$schema")
+        text(schema.get("$id"), f"{label}.$id")
+        text(schema.get("title"), f"{label}.title")
+    schema_type = schema.get("type")
+    if schema_type is not None and schema_type not in {"object", "array", "string", "integer", "boolean", "null"}:
+        raise ContractError(f"{label}.type: unsupported JSON type {schema_type!r}")
+    properties = schema.get("properties")
+    if properties is not None:
+        if not isinstance(properties, dict):
+            raise ContractError(f"{label}.properties: object required")
+        for name, child in properties.items():
+            validate_json_schema_definition(child, f"{label}.properties.{name}")
+    required = schema.get("required")
+    if required is not None:
+        if not isinstance(required, list) or len(required) != len(set(required)) or any(not isinstance(name, str) or not name for name in required):
+            raise ContractError(f"{label}.required: unique non-empty property names required")
+        if not isinstance(properties, dict) or not set(required) <= set(properties):
+            raise ContractError(f"{label}.required: every required name must have a property schema")
+    additional = schema.get("additionalProperties")
+    if additional is not None and not isinstance(additional, bool):
+        validate_json_schema_definition(additional, f"{label}.additionalProperties")
+    items = schema.get("items")
+    if items is not None and not isinstance(items, bool):
+        validate_json_schema_definition(items, f"{label}.items")
+    prefix_items = schema.get("prefixItems")
+    if prefix_items is not None:
+        if not isinstance(prefix_items, list):
+            raise ContractError(f"{label}.prefixItems: array required")
+        for index, child in enumerate(prefix_items):
+            validate_json_schema_definition(child, f"{label}.prefixItems[{index}]")
+    pattern = schema.get("pattern")
+    if pattern is not None:
+        try:
+            re.compile(pattern)
+        except (TypeError, re.error) as error:
+            raise ContractError(f"{label}.pattern: invalid regular expression: {error}") from error
+
+
+def validate_json_schema_instance(value: Any, schema: dict[str, Any], label: str) -> None:
+    if "const" in schema and value != schema["const"]:
+        raise ContractError(f"{label}: value does not match the normative schema constant")
+    if "enum" in schema and value not in schema["enum"]:
+        raise ContractError(f"{label}: value is outside the schema enumeration")
+
+    schema_type = schema.get("type")
+    type_matches = {
+        "object": isinstance(value, dict),
+        "array": isinstance(value, list),
+        "string": isinstance(value, str),
+        "integer": isinstance(value, int) and not isinstance(value, bool),
+        "boolean": isinstance(value, bool),
+        "null": value is None,
+        None: True,
+    }
+    if not type_matches[schema_type]:
+        raise ContractError(f"{label}: expected JSON type {schema_type}")
+
+    if isinstance(value, dict):
+        properties = schema.get("properties", {})
+        missing = set(schema.get("required", [])) - set(value)
+        if missing:
+            raise ContractError(f"{label}: missing required properties {sorted(missing)}")
+        if schema.get("additionalProperties") is False:
+            extra = set(value) - set(properties)
+            if extra:
+                raise ContractError(f"{label}: additional properties forbidden: {sorted(extra)}")
+        for name, child_schema in properties.items():
+            if name in value:
+                validate_json_schema_instance(value[name], child_schema, f"{label}.{name}")
+
+    if isinstance(value, list):
+        if len(value) < schema.get("minItems", 0):
+            raise ContractError(f"{label}: too few array items")
+        if "maxItems" in schema and len(value) > schema["maxItems"]:
+            raise ContractError(f"{label}: too many array items")
+        if schema.get("uniqueItems"):
+            canonical_items = [json.dumps(item, sort_keys=True, separators=(",", ":")) for item in value]
+            if len(canonical_items) != len(set(canonical_items)):
+                raise ContractError(f"{label}: array items must be unique")
+        prefix_items = schema.get("prefixItems", [])
+        for index, child_schema in enumerate(prefix_items):
+            if index < len(value):
+                validate_json_schema_instance(value[index], child_schema, f"{label}[{index}]")
+        items = schema.get("items")
+        if items is False and len(value) > len(prefix_items):
+            raise ContractError(f"{label}: additional array items forbidden")
+        if isinstance(items, dict):
+            for index in range(len(prefix_items), len(value)):
+                validate_json_schema_instance(value[index], items, f"{label}[{index}]")
+
+    if isinstance(value, str):
+        if len(value) < schema.get("minLength", 0):
+            raise ContractError(f"{label}: string is shorter than the schema minimum")
+        if "pattern" in schema and re.search(schema["pattern"], value) is None:
+            raise ContractError(f"{label}: string does not match the schema pattern")
+
+
+def validate_instruction_semantic_contract(
+    semantics: dict[str, Any],
+    reference: dict[str, Any],
+    semantics_path: Path,
+    schema_path: Path,
+    manifest_path: Path,
+    label: str,
+) -> None:
+    schema = load_object(schema_path)
+    validate_json_schema_definition(schema, f"{label} schema", root=True)
+    validate_json_schema_instance(semantics, schema, label)
+    for field in ("schema", "contract_id", "status", "encoding_status"):
+        equal(semantics.get(field), reference[field], f"{label}.{field}")
+
+    source_manifest = obj(semantics, "source_manifest", label)
+    equal(set(source_manifest), {"path", "schema"}, f"{label}.source_manifest fields")
+    equal(source_manifest.get("schema"), MANUAL_MANIFEST_SCHEMA, f"{label}.source_manifest.schema")
+    declared_manifest_path = (semantics_path.parent / text(source_manifest.get("path"), f"{label}.source_manifest.path")).resolve()
+    equal(declared_manifest_path, manifest_path.resolve(), f"{label}.source_manifest.path")
+
+    manifest = load_object(manifest_path)
+    equal(manifest.get("schema"), MANUAL_MANIFEST_SCHEMA, "reference manual manifest schema")
+    manifest_documents = array(manifest, "documents", "reference manual manifest", nonempty=True)
+    manifest_ids = {document.get("document_id") for document in manifest_documents if isinstance(document, dict)}
+    for index, source in enumerate(array(semantics, "sources", label, nonempty=True)):
+        if not isinstance(source, dict):
+            raise ContractError(f"{label}.sources[{index}]: object required")
+        if source.get("document_id") not in manifest_ids:
+            raise ContractError(f"{label}.sources[{index}].document_id: source is absent from the reviewed manual manifest")
+
+
 def register_range(prefix: str, first: int, last: int) -> list[str]:
     return [f"{prefix}{number}" for number in range(first, last + 1)]
+
+
+def validate_semantic_contracts(contract: dict[str, Any], contract_directory: Path, manifest_path: Path) -> None:
+    references = array(contract, "semantic_contracts", PROFILE, nonempty=True)
+    expected_references = [
+        {"contract_id": "M64K-v1.scalar-integer-alu", "path": "semantics/scalar-integer-alu-v1.json", "validation_schema": "semantics/scalar-integer-alu-schema-v1.json", "schema": "m64k.native.instruction-semantics/v1", "status": "normative-draft", "encoding_status": "unallocated"},
+        {"contract_id": "M64K-v1.scalar-shift-rotate", "path": "semantics/scalar-shift-rotate-v1.json", "validation_schema": "semantics/scalar-shift-rotate-schema-v1.json", "schema": "m64k.native.instruction-semantics/v1", "status": "normative-draft", "encoding_status": "unallocated"},
+        {"contract_id": "M64K-v1.scalar-multiply-divide", "path": "semantics/scalar-multiply-divide-v1.json", "validation_schema": "semantics/scalar-multiply-divide-schema-v1.json", "schema": "m64k.native.instruction-semantics/v1", "status": "normative-draft", "encoding_status": "unallocated"},
+    ]
+    equal(references, expected_references, f"{PROFILE}.semantic_contracts")
+    alu_reference = references[0]
+    reference = references[1]
+    multiply_divide_reference = references[2]
+
+    multiply_divide_path = contract_directory / multiply_divide_reference["path"]
+    validate_instruction_semantic_contract(
+        load_object(multiply_divide_path),
+        multiply_divide_reference,
+        multiply_divide_path,
+        contract_directory / multiply_divide_reference["validation_schema"],
+        manifest_path,
+        "scalar multiply/divide semantic contract",
+    )
+
+    semantics_path = contract_directory / reference["path"]
+    semantics = load_object(semantics_path)
+    validate_instruction_semantic_contract(
+        semantics,
+        reference,
+        semantics_path,
+        contract_directory / reference["validation_schema"],
+        manifest_path,
+        "scalar shift/rotate semantic contract",
+    )
+    required_fields = {
+        "schema", "contract_id", "status", "encoding_status", "scope", "source_manifest", "sources", "operand_widths_bits", "count",
+        "writeback", "operations", "condition_state", "memory", "privilege", "synchronous_exceptions", "retirement",
+        "lineage_differences", "verification",
+    }
+    equal(set(semantics), required_fields, "scalar shift/rotate semantic contract fields")
+    for field in ("schema", "contract_id", "status", "encoding_status"):
+        equal(semantics.get(field), reference[field], f"scalar shift/rotate semantic contract {field}")
+    text(semantics.get("scope"), "scalar shift/rotate semantic contract scope")
+    equal(semantics.get("operand_widths_bits"), [8, 16, 32, 64], "scalar shift/rotate operand widths")
+    equal(semantics.get("count"), {
+        "source_bits": "low-6",
+        "range": [0, 63],
+        "shift_reduction": "none",
+        "rotate_reduction": "modulo-operand-width",
+        "rotate_extend_reduction": "modulo-operand-width-plus-one",
+    }, "scalar shift/rotate count contract")
+    equal(semantics.get("writeback"), "truncate-to-operand-width-then-zero-extend-to-64", "scalar shift/rotate writeback")
+    equal(semantics.get("condition_state"), {
+        "without_F": "preserve-NZCV",
+        "with_F": {"N": "result[W-1]", "Z": "result[W-1:0] == 0", "V": "operation-overflow-rule", "C": "operation-carry-rule"},
+        "X": "ROXL-and-ROXR-write-resulting-X-even-without-F; all-other-operations-preserve-X",
+        "zero_is_sticky": False,
+    }, "scalar shift/rotate condition-state contract")
+
+    operations = array(semantics, "operations", "scalar shift/rotate semantic contract", nonempty=True)
+    equal([operation.get("id") for operation in operations if isinstance(operation, dict)], SHIFT_OPERATION_IDS, "scalar shift/rotate operation identities")
+    operation_fields = {"id", "class", "direction", "reads_x", "writes_x", "result", "overflow", "carry"}
+    for index, operation in enumerate(operations):
+        label = f"scalar shift/rotate operations[{index}]"
+        if not isinstance(operation, dict) or set(operation) != operation_fields:
+            raise ContractError(f"{label}: exact operation semantic fields required")
+        for field in ("class", "direction", "result", "overflow", "carry"):
+            text(operation.get(field), f"{label}.{field}")
+        if not isinstance(operation.get("reads_x"), bool) or not isinstance(operation.get("writes_x"), bool):
+            raise ContractError(f"{label}: reads_x and writes_x must be boolean")
+        expects_x = operation["id"] in {"ROXL", "ROXR"}
+        equal(operation["reads_x"], expects_x, f"{label}.reads_x")
+        equal(operation["writes_x"], expects_x, f"{label}.writes_x")
+
+    manifest = load_object(manifest_path)
+    manifest_documents = array(manifest, "documents", "reference manual manifest", nonempty=True)
+    manifest_ids = {document.get("document_id") for document in manifest_documents if isinstance(document, dict)}
+    sources = array(semantics, "sources", "scalar shift/rotate semantic contract", nonempty=True)
+    equal([source.get("document_id") for source in sources if isinstance(source, dict)], ["MC68060UM", "M68000PRM"], "scalar shift/rotate lineage source identities")
+    for index, source in enumerate(sources):
+        label = f"scalar shift/rotate sources[{index}]"
+        if not isinstance(source, dict) or set(source) != {"document_id", "section", "pages", "lineage_role"}:
+            raise ContractError(f"{label}: exact citation fields required")
+        if source["document_id"] not in manifest_ids:
+            raise ContractError(f"{label}.document_id: source is absent from the reviewed manual manifest")
+        for field in ("section", "pages", "lineage_role"):
+            text(source.get(field), f"{label}.{field}")
+
+    equal(semantics.get("synchronous_exceptions"), [], "scalar shift/rotate synchronous exceptions")
+    for field in ("memory", "privilege", "retirement"):
+        text(semantics.get(field), f"scalar shift/rotate {field}")
+    for field in ("lineage_differences", "verification"):
+        values = array(semantics, field, "scalar shift/rotate semantic contract", nonempty=True)
+        if len(values) != len(set(values)) or any(not isinstance(value, str) or not value.strip() for value in values):
+            raise ContractError(f"scalar shift/rotate {field}: unique non-empty strings required")
+
+    alu_semantics_path = contract_directory / alu_reference["path"]
+    alu_semantics = load_object(alu_semantics_path)
+    validate_instruction_semantic_contract(
+        alu_semantics,
+        alu_reference,
+        alu_semantics_path,
+        contract_directory / alu_reference["validation_schema"],
+        manifest_path,
+        "scalar integer ALU semantic contract",
+    )
+    alu_required_fields = {
+        "schema", "contract_id", "status", "encoding_status", "scope", "source_manifest", "sources", "operand_widths_bits", "writeback",
+        "binary_operand_order", "operations", "condition_state", "memory", "privilege", "synchronous_exceptions",
+        "retirement", "lineage_differences", "verification",
+    }
+    equal(set(alu_semantics), alu_required_fields, "scalar integer ALU semantic contract fields")
+    for field in ("schema", "contract_id", "status", "encoding_status"):
+        equal(alu_semantics.get(field), alu_reference[field], f"scalar integer ALU semantic contract {field}")
+    text(alu_semantics.get("scope"), "scalar integer ALU semantic contract scope")
+    equal(alu_semantics.get("operand_widths_bits"), [8, 16, 32, 64], "scalar integer ALU operand widths")
+    equal(alu_semantics.get("writeback"), "truncate-to-operand-width-then-zero-extend-to-64", "scalar integer ALU writeback")
+    equal(alu_semantics.get("binary_operand_order"), "left-operation-right", "scalar integer ALU operand order")
+    equal(alu_semantics.get("condition_state"), {
+        "ordinary_without_F": "preserve-NZCV",
+        "F_and_always_forms": {"N": "result[W-1]", "Z": "result[W-1:0] == 0", "V": "operation-overflow-rule", "C": "operation-carry-rule"},
+        "X": "ADCX-SBCX-and-NEGX-write-resulting-carry-or-borrow; all-other-operations-preserve-X",
+        "zero_is_sticky": False,
+    }, "scalar integer ALU condition-state contract")
+
+    alu_operations = array(alu_semantics, "operations", "scalar integer ALU semantic contract", nonempty=True)
+    equal([operation.get("id") for operation in alu_operations if isinstance(operation, dict)], INTEGER_ALU_OPERATION_IDS, "scalar integer ALU operation identities")
+    alu_operation_fields = {"id", "result", "destination", "reads_x", "writes_x", "flag_mode", "carry", "overflow"}
+    for index, operation in enumerate(alu_operations):
+        label = f"scalar integer ALU operations[{index}]"
+        if not isinstance(operation, dict) or set(operation) != alu_operation_fields:
+            raise ContractError(f"{label}: exact operation semantic fields required")
+        for field in ("result", "destination", "flag_mode", "carry", "overflow"):
+            text(operation.get(field), f"{label}.{field}")
+        expects_x = operation["id"] in {"ADCX", "SBCX", "NEGX"}
+        equal(operation.get("reads_x"), expects_x, f"{label}.reads_x")
+        equal(operation.get("writes_x"), expects_x, f"{label}.writes_x")
+        expected_destination = "none" if operation["id"] in {"CMP", "TST"} else "gpr"
+        equal(operation.get("destination"), expected_destination, f"{label}.destination")
+        expected_flag_mode = "always" if expected_destination == "none" else "optional-F"
+        equal(operation.get("flag_mode"), expected_flag_mode, f"{label}.flag_mode")
+
+    alu_sources = array(alu_semantics, "sources", "scalar integer ALU semantic contract", nonempty=True)
+    equal([source.get("document_id") for source in alu_sources if isinstance(source, dict)], ["MC68060UM", "M68000PRM"], "scalar integer ALU lineage source identities")
+    for index, source in enumerate(alu_sources):
+        label = f"scalar integer ALU sources[{index}]"
+        if not isinstance(source, dict) or set(source) != {"document_id", "section", "pages", "lineage_role"}:
+            raise ContractError(f"{label}: exact citation fields required")
+        if source["document_id"] not in manifest_ids:
+            raise ContractError(f"{label}.document_id: source is absent from the reviewed manual manifest")
+        for field in ("section", "pages", "lineage_role"):
+            text(source.get(field), f"{label}.{field}")
+
+    equal(alu_semantics.get("synchronous_exceptions"), [], "scalar integer ALU synchronous exceptions")
+    for field in ("memory", "privilege", "retirement"):
+        text(alu_semantics.get(field), f"scalar integer ALU {field}")
+    for field in ("lineage_differences", "verification"):
+        values = array(alu_semantics, field, "scalar integer ALU semantic contract", nonempty=True)
+        if len(values) != len(set(values)) or any(not isinstance(value, str) or not value.strip() for value in values):
+            raise ContractError(f"scalar integer ALU {field}: unique non-empty strings required")
 
 
 def validate_cut_line_inventory(inventory_path: Path, manifest_path: Path) -> tuple[set[str], bool]:
@@ -257,8 +578,8 @@ def validate_registers(contract: dict[str, Any]) -> None:
     equal(obj(registers, "predicates", f"{PROFILE}.registers"), {"names": "p0-p7", "count": 8, "width_bits": 1, "p0": "hardwired-true-writes-ignored", "writable": "p1-p7", "state_scope": "per-hardware-thread"}, f"{PROFILE}.registers.predicates")
     equal(obj(registers, "program_counter", f"{PROFILE}.registers"), {"name": "PC", "width_bits": 64}, f"{PROFILE}.registers.program_counter")
     state = obj(registers, "condition_state", f"{PROFILE}.registers")
-    equal(obj(state, "nzcv", f"{PROFILE}.registers.condition_state"), {"name": "NZCV", "bits": ["N", "Z", "C", "V"], "width_bits": 4}, f"{PROFILE}.registers.condition_state.nzcv")
-    equal(obj(state, "extend", f"{PROFILE}.registers.condition_state"), {"name": "X", "width_bits": 1, "separate_from_carry": True, "state_scope": "per-hardware-thread", "modified_only_by": ["ADCX", "SBCX", "rotate-through-X"]}, f"{PROFILE}.registers.condition_state.extend")
+    equal(obj(state, "nzcv", f"{PROFILE}.registers.condition_state"), {"name": "NZCV", "bits_msb_to_lsb": ["N", "Z", "C", "V"], "packed_encoding": {"N": 3, "Z": 2, "C": 1, "V": 0}, "width_bits": 4}, f"{PROFILE}.registers.condition_state.nzcv")
+    equal(obj(state, "extend", f"{PROFILE}.registers.condition_state"), {"name": "X", "width_bits": 1, "separate_from_carry": True, "state_scope": "per-hardware-thread", "modified_only_by": ["ADCX", "SBCX", "NEGX", "rotate-through-X"]}, f"{PROFILE}.registers.condition_state.extend")
 
 
 def validate_widths(contract: dict[str, Any]) -> None:
@@ -296,6 +617,31 @@ def validate_native_profile_contracts(contract: dict[str, Any]) -> None:
         "architectural_contexts": 8,
         "identity_contract": "core-hardware-thread-transaction-privilege-domain-address-space-explicit",
     }, f"{PROFILE}.product_topology")
+    implementation_target = obj(contract, "implementation_target", PROFILE)
+    equal(implementation_target, {
+        "status": "design-target-not-implementation-claim",
+        "implemented": False,
+        "core": {
+            "execution_model": "out-of-order",
+            "decode_instructions_per_cycle": 4,
+            "retire_instructions_per_cycle": 4,
+            "issue_uops_per_cycle": 6,
+            "rob_entries_per_core": 192,
+            "rob_identity_requirement": "context-index-generation-allocation-sequence-uop",
+            "precise_retirement": True,
+        },
+        "scalability": {
+            "cores": 4,
+            "hardware_threads_per_core": 2,
+            "single_core_single_thread_is_validation_projection_only": True,
+            "shared_structure_identity_requirement": "every-entry-and-response-retains-owning-core-and-hardware-thread",
+        },
+        "deferred_extensions": {
+            "scalable_vector": "separate-versioned-extension-required",
+            "matrix_tile": "separate-versioned-extension-required",
+            "fixed-vector-length_or_tile_geometry_in_base_interfaces": "forbidden",
+        },
+    }, f"{PROFILE}.implementation_target")
 
 
 def validate_encoding(contract: dict[str, Any]) -> bool:
@@ -552,7 +898,7 @@ def validate_abi_mmu_cache(contract: dict[str, Any]) -> bool:
     equal(varargs, expected_varargs, f"{PROFILE}.abi.varargs")
 
     mmu = obj(contract, "mmu", PROFILE)
-    equal(mmu, {"translation_required": True, "virtual_address_bits": 48, "physical_address_bits": 48, "canonical_rule": "bits-63:48-equal-bit-47", "asid_bits": 16, "page_table": {"levels": 4, "entry_bits": 64, "entries_per_level": 512, "page_sizes_bytes": [4096, 2097152, 1073741824]}, "tlb_tag_fields": TLB_TAGS}, f"{PROFILE}.mmu")
+    equal(mmu, {"translation_required": True, "virtual_address_bits": 48, "physical_address_bits": {"minimum": 36, "maximum": 48, "first_product": 48, "discovery": "implementation-csr"}, "canonical_rule": "bits-63:48-equal-bit-47", "asid_bits": 16, "page_table": {"levels": 4, "entry_bits": 64, "entries_per_level": 512, "page_sizes_bytes": [4096, 2097152, 1073741824]}, "tlb_tag_fields": TLB_TAGS}, f"{PROFILE}.mmu")
     cache = obj(contract, "cache", PROFILE)
     equal(obj(cache, "architectural", f"{PROFILE}.cache"), {"line_bytes": 64, "memory_order": "TSO"}, f"{PROFILE}.cache.architectural")
     equal(cache.get("hierarchy_required"), True, f"{PROFILE}.cache.hierarchy_required")
@@ -595,6 +941,10 @@ def validate_contract(
     equal(contract.get("isa_family"), "M64K-native", f"{PROFILE}.isa_family")
     equal(contract.get("isa_version"), expected_version or PROFILE, f"{PROFILE}.isa_version")
     equal(contract.get("profile_kind"), "native-64-system-profile", f"{PROFILE}.profile_kind")
+    repository_root = Path(__file__).resolve().parents[1]
+    resolved_contract_directory = contract_directory or repository_root / "isa/native"
+    resolved_manifest_path = manifest_path or repository_root / "references/manuals/manifest.json"
+    validate_semantic_contracts(contract, resolved_contract_directory, resolved_manifest_path)
     validate_registers(contract)
     validate_widths(contract)
     validate_native_profile_contracts(contract)

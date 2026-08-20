@@ -14,7 +14,7 @@ import unittest
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
-from check_m64k_native_contracts import ContractError, load_object, validate_contract, validate_cut_line_inventory, validate_registry, validate_semantic_baseline, validate_source_manifest  # noqa: E402
+from check_m64k_native_contracts import ContractError, load_object, validate_contract, validate_cut_line_inventory, validate_instruction_semantic_contract, validate_registry, validate_semantic_baseline, validate_source_manifest  # noqa: E402
 
 
 ROOT = SCRIPT_DIRECTORY.parent
@@ -42,6 +42,39 @@ class NativeContractTests(unittest.TestCase):
             path.write_text(json.dumps(candidate), encoding="utf-8")
             with self.assertRaises(ContractError):
                 validate_cut_line_inventory(path, MANUAL_MANIFEST)
+
+    def assert_semantic_invalid(self, reference_index, mutation, schema_mutation=None) -> None:
+        reference = self.contract["semantic_contracts"][reference_index]
+        semantics_path = ROOT / "isa/native" / reference["path"]
+        candidate = load_object(semantics_path)
+        mutation(candidate)
+        schema_path = ROOT / "isa/native" / reference["validation_schema"]
+        if schema_mutation is None:
+            with self.assertRaises(ContractError):
+                validate_instruction_semantic_contract(
+                    candidate,
+                    reference,
+                    semantics_path,
+                    schema_path,
+                    MANUAL_MANIFEST,
+                    reference["contract_id"],
+                )
+            return
+
+        schema = load_object(schema_path)
+        schema_mutation(schema)
+        with tempfile.TemporaryDirectory() as directory:
+            mutated_schema_path = Path(directory) / schema_path.name
+            mutated_schema_path.write_text(json.dumps(schema), encoding="utf-8")
+            with self.assertRaises(ContractError):
+                validate_instruction_semantic_contract(
+                    candidate,
+                    reference,
+                    semantics_path,
+                    mutated_schema_path,
+                    MANUAL_MANIFEST,
+                    reference["contract_id"],
+                )
 
     def test_repository_registry_has_one_native_v1_profile(self) -> None:
         contracts = validate_registry(REGISTRY)
@@ -80,6 +113,48 @@ class NativeContractTests(unittest.TestCase):
     def test_unknown_top_level_field_is_rejected(self) -> None:
         self.assert_invalid(lambda item: item.update({"compatibility_mode": "M68K"}))
 
+    def test_semantic_contract_reference_is_mandatory(self) -> None:
+        self.assert_invalid(lambda item: item.update({"semantic_contracts": []}))
+
+    def test_unallocated_semantics_cannot_claim_encoding(self) -> None:
+        self.assert_invalid(lambda item: item["semantic_contracts"][0].update({"encoding_status": "allocated"}))
+
+    def test_integer_semantic_result_cannot_be_arbitrary_text(self) -> None:
+        self.assert_semantic_invalid(0, lambda item: item["operations"][0].update({"result": "implementation-defined"}))
+
+    def test_shift_semantic_carry_cannot_be_arbitrary_text(self) -> None:
+        self.assert_semantic_invalid(1, lambda item: item["operations"][0].update({"carry": "whatever-the-test-observed"}))
+
+    def test_semantic_citation_section_cannot_be_arbitrary_text(self) -> None:
+        self.assert_semantic_invalid(0, lambda item: item["sources"][1].update({"section": "some manual section"}))
+
+    def test_semantic_citation_pages_cannot_be_arbitrary_text(self) -> None:
+        self.assert_semantic_invalid(1, lambda item: item["sources"][0].update({"pages": "unknown"}))
+
+    def test_semantic_source_manifest_path_is_repository_bound(self) -> None:
+        self.assert_semantic_invalid(0, lambda item: item["source_manifest"].update({"path": "/tmp/unreviewed-manifest.json"}))
+
+    def test_semantic_source_must_exist_in_reviewed_manifest(self) -> None:
+        self.assert_semantic_invalid(1, lambda item: item["sources"][0].update({"document_id": "UNREVIEWED"}))
+
+    def test_semantic_schema_rejects_additional_contract_fields(self) -> None:
+        self.assert_semantic_invalid(0, lambda item: item.update({"observed_test_answer": True}))
+
+    def test_semantic_schema_definition_rejects_unknown_keywords(self) -> None:
+        self.assert_semantic_invalid(0, lambda item: None, lambda schema: schema.update({"acceptAnything": True}))
+
+    def test_multiply_divide_semantics_cannot_change_signed_rounding(self) -> None:
+        self.assert_semantic_invalid(2, lambda item: item["division"].update({"signed_quotient_rounding": "floor"}))
+
+    def test_multiply_divide_semantics_cannot_weaken_fault_priority(self) -> None:
+        self.assert_semantic_invalid(2, lambda item: item["division"].update({"fault_priority": ["IntegerDivideOverflow", "IntegerDivideByZero"]}))
+
+    def test_multiply_divide_semantics_cannot_publish_fault_writes(self) -> None:
+        self.assert_semantic_invalid(2, lambda item: item["synchronous_exceptions"][0].update({"architectural_writes": "quotient"}))
+
+    def test_multiply_divide_citations_are_strict(self) -> None:
+        self.assert_semantic_invalid(2, lambda item: item["sources"][1].update({"pages": "approximately chapter four"}))
+
     def test_compatibility_banks_are_rejected(self) -> None:
         self.assert_invalid(lambda item: item["registers"].update({"banks": []}))
 
@@ -100,6 +175,21 @@ class NativeContractTests(unittest.TestCase):
 
     def test_product_topology_is_four_cores_smt2(self) -> None:
         self.assert_invalid(lambda item: item["product_topology"].update({"hardware_threads_per_core": 1}))
+
+    def test_product_target_width_cannot_drift(self) -> None:
+        self.assert_invalid(lambda item: item["implementation_target"]["core"].update({"decode_instructions_per_cycle": 2}))
+
+    def test_product_target_issue_capacity_cannot_drift(self) -> None:
+        self.assert_invalid(lambda item: item["implementation_target"]["core"].update({"issue_uops_per_cycle": 4}))
+
+    def test_product_target_rob_capacity_cannot_drift(self) -> None:
+        self.assert_invalid(lambda item: item["implementation_target"]["core"].update({"rob_entries_per_core": 128}))
+
+    def test_product_target_cannot_claim_implementation(self) -> None:
+        self.assert_invalid(lambda item: item["implementation_target"].update({"implemented": True}))
+
+    def test_deferred_vector_geometry_cannot_leak_into_base_interfaces(self) -> None:
+        self.assert_invalid(lambda item: item["implementation_target"]["deferred_extensions"].update({"fixed-vector-length_or_tile_geometry_in_base_interfaces": "permitted"}))
 
     def test_non_fixed32_base_is_rejected(self) -> None:
         self.assert_invalid(lambda item: item["encoding"]["base_envelope"].update({"instruction_bits": 16}))
@@ -227,6 +317,12 @@ class NativeContractTests(unittest.TestCase):
 
     def test_endian_tlb_tag_is_rejected(self) -> None:
         self.assert_invalid(lambda item: item["mmu"]["tlb_tag_fields"].append("endian"))
+
+    def test_physical_address_range_cannot_drop_below_36_bits(self) -> None:
+        self.assert_invalid(lambda item: item["mmu"]["physical_address_bits"].update({"minimum": 32}))
+
+    def test_first_product_physical_address_width_is_48_bits(self) -> None:
+        self.assert_invalid(lambda item: item["mmu"]["physical_address_bits"].update({"first_product": 40}))
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@ interface m64k_targeted_interrupt_if (
     input logic clk,
     input logic rst_n
 );
-    import m64k_native_contract_pkg::*;
+    import m64k_interrupt_types_pkg::*;
 
     logic interrupt_valid;
     logic interrupt_ready;

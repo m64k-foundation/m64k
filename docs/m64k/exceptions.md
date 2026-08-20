@@ -15,7 +15,9 @@ Priority is reset/fatal machine check, oldest synchronous fault, explicit trap o
 
 Synchronous faults save the faulting `PC`; explicit traps save the following `PC`; interrupts save the next instruction to execute. Trap entry writes the CSRs defined by [privilege.md](privilege.md). Hardware MUST NOT write a stack frame, select a dedicated privilege stack, or fetch a handler pointer from a memory vector slot.
 
-Required M64K v1 causes include instruction address/access, illegal instruction, privilege violation, breakpoint, syscall, load/store address/access, instruction/load/store page faults, atomic alignment/type, divide by zero, enabled scalar floating-point traps, and machine check. Numeric cause assignments are frozen with the machine-readable ISA contract.
+Required M64K v1 causes include instruction address/access, illegal instruction, privilege violation, breakpoint, syscall, load/store address/access, instruction/load/store page faults, atomic alignment/type, `IntegerDivideByZero`, `IntegerDivideOverflow`, enabled scalar floating-point traps, and machine check. Numeric cause assignments are frozen with the machine-readable ISA contract.
+
+`IntegerDivideByZero` has priority over `IntegerDivideOverflow`. Both are synchronous faults that save the faulting `PC` in `tpc`, set `tval` to zero, and publish no quotient, remainder, `NZCV`, or other architectural write. Quotient overflow is tested only by a divide form that requests a quotient; signed remainder-only minimum divided by minus one therefore returns zero without fault.
 
 Ordinary instructions restart at `tpc`. A multi-access instruction MUST specify any externally visible checkpoint. Retired stores awaiting M64K v1 TSO visibility cannot later generate a precise instruction fault; an attributable late failure is a machine check. Trap return validates all CSR state before a single architectural restoration.
 

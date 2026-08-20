@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://m64k.org/contracts/rob-allocation-lifetime-schema-v1.json",
+  "title": "M64K ROB allocation-lifetime implementation contract schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "contract", "status", "software_visible", "topology", "identity", "cycle_semantics", "non_claims"],
+  "properties": {
+    "$schema": {"const": "rob-allocation-lifetime-schema-v1.json"},
+    "contract": {"const": "m64k-rob-allocation-lifetime-v1"},
+    "status": {"const": "normative-first-product-implementation-contract"},
+    "software_visible": {"const": false},
+    "topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "entries", "hardware_threads", "allocation_lanes", "release_lanes", "validation_lanes", "recovery_mask_bits"],
+      "properties": {
+        "scope": {"const": "per-core-shared-by-smt-siblings"},
+        "entries": {"const": 192},
+        "hardware_threads": {"const": 2},
+        "allocation_lanes": {"const": 4},
+        "release_lanes": {"const": 4},
+        "validation_lanes": {"const": 6},
+        "recovery_mask_bits": {"const": 192}
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stored_fields", "core_check", "index_check", "generation_bits", "allocation_sequence_bits", "uop_membership_owner", "rollover"],
+      "properties": {
+        "stored_fields": {"const": ["hardware-thread-id", "rob-generation", "allocation-sequence"]},
+        "core_check": {"const": "request-core-equals-local-core"},
+        "index_check": {"const": "0-through-191-only"},
+        "generation_bits": {"const": 8},
+        "allocation_sequence_bits": {"const": 64},
+        "uop_membership_owner": {"const": "separate-outstanding-uop-completion-tracker"},
+        "rollover": {"const": "stop-allocation-and-prove-all-tagged-holders-drained-before-reuse"}
+      }
+    },
+    "cycle_semantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["validation_view", "release_suppresses_match", "recovery_suppresses_match", "same_cycle_allocation_matches", "same_index_turnover", "recovery_dominance", "conflict_policy", "reset"],
+      "properties": {
+        "validation_view": {"const": "registered-current-state"},
+        "release_suppresses_match": {"const": true},
+        "recovery_suppresses_match": {"const": true},
+        "same_cycle_allocation_matches": {"const": false},
+        "same_index_turnover": {"const": "exact-release-then-distinct-allocation-at-edge"},
+        "recovery_dominance": {"const": "clear-and-reject-same-index-allocation"},
+        "conflict_policy": {"const": "protocol-violation-with-no-conflicting-index-update"},
+        "reset": {"const": "clear-live-bits-only"}
+      }
+    },
+    "non_claims": {
+      "const": [
+        "rob-payload",
+        "instruction-ordering",
+        "branch-checkpoint-generation",
+        "exception-priority",
+        "destination-readiness",
+        "physical-register-writeback",
+        "duplicate-completion-detection",
+        "store-visibility",
+        "retirement"
+      ]
+    }
+  }
+}

@@ -1,5 +1,6 @@
 package m64k_precise_retirement_pkg;
-    import m64k_native_contract_pkg::*;
+    import m64k_arch_types_pkg::*;
+    import m64k_memory_types_pkg::*;
 
     localparam int unsigned M64K_RETIRE_MAX_WRITES = 4;
 

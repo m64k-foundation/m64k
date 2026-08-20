@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://m64k.org/contracts/outstanding-uop-completion-schema-v1.json",
+  "title": "M64K outstanding micro-operation and completion implementation contract schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "contract", "status", "software_visible", "topology", "identity", "ownership_separation", "membership", "completion", "squash_and_reset", "formal_acceptance", "non_claims"],
+  "properties": {
+    "$schema": {"const": "outstanding-uop-completion-schema-v1.json"},
+    "contract": {"const": "m64k-outstanding-uop-completion-v1"},
+    "status": {"const": "normative-first-product-implementation-contract"},
+    "software_visible": {"const": false},
+    "topology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "product_cores", "hardware_threads_per_core", "rob_entries_per_core", "uops_per_allocation", "registration_lanes", "seal_lanes", "completion_lanes", "retirement_observation_lanes"],
+      "properties": {
+        "scope": {"const": "per-core-shared-by-smt-siblings"},
+        "product_cores": {"const": 4},
+        "hardware_threads_per_core": {"const": 2},
+        "rob_entries_per_core": {"const": 192},
+        "uops_per_allocation": {"const": 16},
+        "registration_lanes": {"const": 6},
+        "seal_lanes": {"const": 4},
+        "completion_lanes": {"const": 6},
+        "retirement_observation_lanes": {"const": 4}
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lifetime_fields", "uop_fields", "core_id_bits", "hardware_thread_id_bits", "rob_index_bits", "rob_generation_bits", "allocation_sequence_bits", "uop_index_bits", "equality"],
+      "properties": {
+        "lifetime_fields": {"const": ["core-id", "hardware-thread-id", "rob-index", "rob-generation", "allocation-sequence"]},
+        "uop_fields": {"const": ["core-id", "hardware-thread-id", "rob-index", "rob-generation", "allocation-sequence", "uop-index"]},
+        "core_id_bits": {"const": 6},
+        "hardware_thread_id_bits": {"const": 2},
+        "rob_index_bits": {"const": 8},
+        "rob_generation_bits": {"const": 8},
+        "allocation_sequence_bits": {"const": 64},
+        "uop_index_bits": {"const": 4},
+        "equality": {"const": "exact-full-width-no-hash-or-truncation"}
+      }
+    },
+    "ownership_separation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rob_lifetime", "uop_membership", "speculative_publication", "retirement"],
+      "properties": {
+        "rob_lifetime": {"const": "external-exact-prerequisite"},
+        "uop_membership": {"const": "registered-and-outstanding-in-this-tracker"},
+        "speculative_publication": {"const": "typed-destination-role-authorization-only-after-accepted-completion"},
+        "retirement": {"const": "never-authorized-by-this-contract"}
+      }
+    },
+    "membership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["registration_view", "same_cycle_registration_completes", "manifest_fields", "data_roles", "duplicate_registration", "membership_closure", "registration_after_seal", "uop_reuse"],
+      "properties": {
+        "registration_view": {"const": "registered-current-lifetime-state"},
+        "same_cycle_registration_completes": {"const": false},
+        "manifest_fields": {"const": ["data-role-mask", "nzcv-valid", "x-valid", "allowed-fault-class-set"]},
+        "data_roles": {"const": ["LOW", "HIGH", "QUOTIENT", "REMAINDER"]},
+        "duplicate_registration": {"const": "reject-all-conflicting-lanes-with-no-uop-state-change"},
+        "membership_closure": {"const": "nonempty-explicit-seal-after-or-atomically-with-final-registration"},
+        "registration_after_seal": {"const": "protocol-violation"},
+        "uop_reuse": {"const": "forbidden-until-enclosing-rob-lifetime-release-or-recovery"}
+      }
+    },
+    "completion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["acceptance_requires", "success_payload", "result_role_uniqueness", "fault_payload", "duplicate_completion", "all_uops_complete", "publication", "retirement_effect"],
+      "properties": {
+        "acceptance_requires": {"const": ["rob-lifetime-match", "registered-member", "outstanding-not-completed", "unique-completion-lane", "not-released-or-recovered", "exact-terminal-payload"]},
+        "success_payload": {"const": "exact-registered-data-role-mask-and-condition-state-without-fault"},
+        "result_role_uniqueness": {"const": "each-selected-role-exactly-once"},
+        "fault_payload": {"const": "one-registered-class-typed-fault-with-no-data-nzcv-or-x-publication"},
+        "duplicate_completion": {"const": "protocol-violation-with-no-state-change-or-publication"},
+        "all_uops_complete": {"const": "lifetime-match-and-nonempty-sealed-membership-and-every-member-completed"},
+        "publication": {"const": "atomic-with-completion-acceptance"},
+        "retirement_effect": {"const": "none"}
+      }
+    },
+    "squash_and_reset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["release_and_recovery", "clear_scope", "reset", "payload_reset"],
+      "properties": {
+        "release_and_recovery": {"const": "dominate-registration-seal-completion-readiness-fault-and-publication"},
+        "clear_scope": {"const": "all-members-manifests-completions-seal-and-fault-state-for-selected-allocation"},
+        "reset": {"const": "clear-valid-and-protocol-state-only"},
+        "payload_reset": {"const": "forbidden-as-a-functional-requirement"}
+      }
+    },
+    "formal_acceptance": {
+      "const": ["lifetime-prerequisite", "exact-uop-membership", "no-duplicate-completion", "manifest-exactness", "seal-closure", "atomic-terminal-event", "squash-atomicity", "sibling-and-core-isolation", "unused-index-rejection", "noninterference", "reset-hygiene", "retirement-separation"]
+    },
+    "non_claims": {
+      "const": ["rob-lifetime-storage", "instruction-ordering", "oldest-instruction-selection", "exception-priority", "architectural-retirement", "store-commitment", "branch-recovery-mask-generation", "physical-register-allocation", "execution-result-value-generation"]
+    }
+  }
+}

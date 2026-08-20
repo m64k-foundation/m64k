@@ -4,6 +4,32 @@
   "isa_version": "M64K-v1",
   "profile_kind": "native-64-system-profile",
   "status": "development",
+  "semantic_contracts": [
+    {
+      "contract_id": "M64K-v1.scalar-integer-alu",
+      "path": "semantics/scalar-integer-alu-v1.json",
+      "validation_schema": "semantics/scalar-integer-alu-schema-v1.json",
+      "schema": "m64k.native.instruction-semantics/v1",
+      "status": "normative-draft",
+      "encoding_status": "unallocated"
+    },
+    {
+      "contract_id": "M64K-v1.scalar-shift-rotate",
+      "path": "semantics/scalar-shift-rotate-v1.json",
+      "validation_schema": "semantics/scalar-shift-rotate-schema-v1.json",
+      "schema": "m64k.native.instruction-semantics/v1",
+      "status": "normative-draft",
+      "encoding_status": "unallocated"
+    },
+    {
+      "contract_id": "M64K-v1.scalar-multiply-divide",
+      "path": "semantics/scalar-multiply-divide-v1.json",
+      "validation_schema": "semantics/scalar-multiply-divide-schema-v1.json",
+      "schema": "m64k.native.instruction-semantics/v1",
+      "status": "normative-draft",
+      "encoding_status": "unallocated"
+    }
+  ],
   "backend_claims": {
     "semantic_inventory_closed": false,
     "encoding_frozen": false,
@@ -28,8 +54,8 @@
     "predicates": {"names": "p0-p7", "count": 8, "width_bits": 1, "p0": "hardwired-true-writes-ignored", "writable": "p1-p7", "state_scope": "per-hardware-thread"},
     "program_counter": {"name": "PC", "width_bits": 64},
     "condition_state": {
-      "nzcv": {"name": "NZCV", "bits": ["N", "Z", "C", "V"], "width_bits": 4},
-      "extend": {"name": "X", "width_bits": 1, "separate_from_carry": true, "state_scope": "per-hardware-thread", "modified_only_by": ["ADCX", "SBCX", "rotate-through-X"]}
+      "nzcv": {"name": "NZCV", "bits_msb_to_lsb": ["N", "Z", "C", "V"], "packed_encoding": {"N": 3, "Z": 2, "C": 1, "V": 0}, "width_bits": 4},
+      "extend": {"name": "X", "width_bits": 1, "separate_from_carry": true, "state_scope": "per-hardware-thread", "modified_only_by": ["ADCX", "SBCX", "NEGX", "rotate-through-X"]}
     }
   },
   "scalar_widths": {
@@ -59,6 +85,30 @@
     "hardware_threads_per_core": 2,
     "architectural_contexts": 8,
     "identity_contract": "core-hardware-thread-transaction-privilege-domain-address-space-explicit"
+  },
+  "implementation_target": {
+    "status": "design-target-not-implementation-claim",
+    "implemented": false,
+    "core": {
+      "execution_model": "out-of-order",
+      "decode_instructions_per_cycle": 4,
+      "retire_instructions_per_cycle": 4,
+      "issue_uops_per_cycle": 6,
+      "rob_entries_per_core": 192,
+      "rob_identity_requirement": "context-index-generation-allocation-sequence-uop",
+      "precise_retirement": true
+    },
+    "scalability": {
+      "cores": 4,
+      "hardware_threads_per_core": 2,
+      "single_core_single_thread_is_validation_projection_only": true,
+      "shared_structure_identity_requirement": "every-entry-and-response-retains-owning-core-and-hardware-thread"
+    },
+    "deferred_extensions": {
+      "scalable_vector": "separate-versioned-extension-required",
+      "matrix_tile": "separate-versioned-extension-required",
+      "fixed-vector-length_or_tile_geometry_in_base_interfaces": "forbidden"
+    }
   },
   "encoding": {
     "instruction_alignment_bytes": 4,
@@ -211,6 +261,6 @@
     "aggregate_calling": {"non_hfa_register_limit_bytes": 16, "non_hfa_register_slots": ["r0", "r1"], "hfa_member_formats": ["binary32", "binary64"], "hfa_member_count_minimum": 1, "hfa_member_count_maximum": 4, "hfa_registers": ["f0", "f1", "f2", "f3"], "sret_threshold_bits": 128, "sret_pointer": "r0", "sret_shifts_explicit_integer_arguments_to": "r1"},
     "varargs": {"register_save_area_bytes": 128, "general_save_area": {"offset_bytes": 0, "size_bytes": 64, "registers": ["r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7"]}, "floating_save_area": {"offset_bytes": 64, "size_bytes": 64, "registers": ["f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7"]}, "va_list_fields": ["general-register-offset", "floating-register-offset", "overflow-stack-pointer", "register-save-area-pointer"], "unnamed_fp_classification": "floating-register-save-area"}
   },
-  "mmu": {"translation_required": true, "virtual_address_bits": 48, "physical_address_bits": 48, "canonical_rule": "bits-63:48-equal-bit-47", "asid_bits": 16, "page_table": {"levels": 4, "entry_bits": 64, "entries_per_level": 512, "page_sizes_bytes": [4096, 2097152, 1073741824]}, "tlb_tag_fields": ["asid", "virtual-page-number", "page-size", "global", "translation-generation"]},
+  "mmu": {"translation_required": true, "virtual_address_bits": 48, "physical_address_bits": {"minimum": 36, "maximum": 48, "first_product": 48, "discovery": "implementation-csr"}, "canonical_rule": "bits-63:48-equal-bit-47", "asid_bits": 16, "page_table": {"levels": 4, "entry_bits": 64, "entries_per_level": 512, "page_sizes_bytes": [4096, 2097152, 1073741824]}, "tlb_tag_fields": ["asid", "virtual-page-number", "page-size", "global", "translation-generation"]},
   "cache": {"architectural": {"line_bytes": 64, "memory_order": "TSO"}, "hierarchy_required": true, "implementation_profile": {"l1i": {"capacity_kib_per_core": 32, "ways": 8, "scope": "private"}, "l1d": {"capacity_kib_per_core": 32, "ways": 8, "scope": "private"}, "l2": {"capacity_kib_per_core": 512, "ways": 8, "scope": "private", "blocking": false}, "l3": {"capacity_mib_total": 4, "ways": 8, "banks": 8, "scope": "shared", "inclusion": "non-inclusive"}, "coherence": {"protocol": "MESI", "directory_home": "L3", "sharer_tracking": "per-core-bitmap"}}}
 }

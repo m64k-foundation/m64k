@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://m64k.dev/schema/scalar-multiply-divide-semantics-v1.json",
+  "title": "M64K v1 scalar multiply and divide semantic contract",
+  "type": "object",
+  "const": {
+    "schema": "m64k.native.instruction-semantics/v1",
+    "contract_id": "M64K-v1.scalar-multiply-divide",
+    "status": "normative-draft",
+    "encoding_status": "unallocated",
+    "scope": "Native scalar signed and unsigned multiply, quotient, remainder, and fused quotient-remainder semantics independent of numeric encoding",
+    "source_manifest": {
+      "path": "../../../references/manuals/manifest.json",
+      "schema": "m64k.reference-manual-manifest/v2"
+    },
+    "sources": [
+      {
+        "document_id": "MC68060UM",
+        "section": "1.9 Instruction Set Overview, Table 1-3; 8.2.3 Instruction Trap Exception; 8.2.4 Illegal Instruction and Unimplemented Instruction Exceptions; 10.6 Table 10-9; Appendix C C.2 and C.2.3",
+        "pages": "1-16 through 1-20, 8-7 through 8-8, 10-16, C-4 through C-5, and C-9 through C-11",
+        "lineage_role": "MC68060 cut-line presence, divide-by-zero behavior, hardware execution evidence, and software-emulated wide-form inventory"
+      },
+      {
+        "document_id": "M68000PRM",
+        "section": "Integer Instructions: DIVS/DIVSL, DIVU/DIVUL, MULS, and MULU",
+        "pages": "4-92 through 4-99 and 4-135 through 4-140",
+        "lineage_role": "delegated arithmetic, result-width, quotient, remainder, overflow, and condition-code semantics"
+      },
+      {
+        "document_id": "M68000PRMER",
+        "section": "Errata for Revision 1, Table 1",
+        "pages": "2",
+        "lineage_role": "reviewed errata contains no multiply or divide correction"
+      }
+    ],
+    "operand_widths_bits": [
+      8,
+      16,
+      32,
+      64
+    ],
+    "operations": [
+      {
+        "id": "MULS_NARROW",
+        "signed": true,
+        "input_width": "W",
+        "result": "low-W-bits-of-exact-2W-product",
+        "destinations": 1
+      },
+      {
+        "id": "MULU_NARROW",
+        "signed": false,
+        "input_width": "W",
+        "result": "low-W-bits-of-exact-2W-product",
+        "destinations": 1
+      },
+      {
+        "id": "MULS_WIDENING",
+        "signed": true,
+        "input_width": "W",
+        "result": "exact-signed-2W-product",
+        "destinations": "one-when-2W<=64-otherwise-high64-and-low64"
+      },
+      {
+        "id": "MULU_WIDENING",
+        "signed": false,
+        "input_width": "W",
+        "result": "exact-unsigned-2W-product",
+        "destinations": "one-when-2W<=64-otherwise-high64-and-low64"
+      },
+      {
+        "id": "DIVS_QUOTIENT",
+        "signed": true,
+        "dividend_width": "W",
+        "result": "W-quotient",
+        "destinations": 1
+      },
+      {
+        "id": "DIVU_QUOTIENT",
+        "signed": false,
+        "dividend_width": "W",
+        "result": "W-quotient",
+        "destinations": 1
+      },
+      {
+        "id": "DIVS_REMAINDER",
+        "signed": true,
+        "dividend_width": "W",
+        "result": "W-remainder",
+        "destinations": 1
+      },
+      {
+        "id": "DIVU_REMAINDER",
+        "signed": false,
+        "dividend_width": "W",
+        "result": "W-remainder",
+        "destinations": 1
+      },
+      {
+        "id": "DIVS_QUOTIENT_REMAINDER",
+        "signed": true,
+        "dividend_width": "W",
+        "result": "W-quotient-and-W-remainder",
+        "destinations": 2
+      },
+      {
+        "id": "DIVU_QUOTIENT_REMAINDER",
+        "signed": false,
+        "dividend_width": "W",
+        "result": "W-quotient-and-W-remainder",
+        "destinations": 2
+      },
+      {
+        "id": "DIVS_WIDE_QUOTIENT_REMAINDER",
+        "signed": true,
+        "dividend_width": "2W",
+        "result": "W-quotient-and-W-remainder",
+        "destinations": 2
+      },
+      {
+        "id": "DIVU_WIDE_QUOTIENT_REMAINDER",
+        "signed": false,
+        "dividend_width": "2W",
+        "result": "W-quotient-and-W-remainder",
+        "destinations": 2
+      }
+    ],
+    "multiplication": {
+      "operand_preparation": "truncate-each-input-to-W-before-signed-or-unsigned-interpretation",
+      "narrow_writeback": "truncate-product-to-W-then-zero-extend-to-64",
+      "widening_writeback": "zero-extend-the-2W-bit-pattern-to-64-when-2W<64; write-all-64-when-2W=64; write-high64-and-low64-when-2W=128",
+      "overflow_exception": false
+    },
+    "division": {
+      "signed_quotient_rounding": "toward-zero",
+      "remainder_identity": "dividend=quotient*divisor+remainder",
+      "remainder_magnitude": "abs(remainder)<abs(divisor)",
+      "signed_nonzero_remainder_sign": "same-as-dividend",
+      "double_width_dividend": "concatenate-high-W-and-low-W-before-2W-bit-signed-or-unsigned-interpretation",
+      "fault_priority": [
+        "IntegerDivideByZero",
+        "IntegerDivideOverflow"
+      ],
+      "remainder_only_signed_min_divided_by_minus_one": "successful-zero-remainder-without-overflow"
+    },
+    "condition_state": {
+      "without_F": "preserve-NZCV",
+      "narrow_multiply_F": {
+        "N": "low_product[W-1]",
+        "Z": "low_product==0",
+        "V_signed": "exact_product-is-not-sign-extension-of-low-W",
+        "V_unsigned": "upper-W-product-bits-are-nonzero",
+        "C": "0"
+      },
+      "widening_multiply_F": {
+        "N": "exact_product[2W-1]",
+        "Z": "complete-2W-product==0",
+        "V": "0",
+        "C": "0"
+      },
+      "quotient_or_fused_divide_F": {
+        "N": "quotient[W-1]",
+        "Z": "quotient==0",
+        "V": "0",
+        "C": "0"
+      },
+      "remainder_only_F": {
+        "N": "remainder[W-1]",
+        "Z": "remainder==0",
+        "V": "0",
+        "C": "0"
+      },
+      "X": "preserve-for-all-operations-and-faults",
+      "faults": "preserve-NZCV"
+    },
+    "memory": "no-memory-operand-or-side-effect",
+    "privilege": "all-levels",
+    "synchronous_exceptions": [
+      {
+        "cause": "IntegerDivideByZero",
+        "condition": "divisor-is-zero",
+        "tpc": "faulting-instruction",
+        "tval": 0,
+        "architectural_writes": "none"
+      },
+      {
+        "cause": "IntegerDivideOverflow",
+        "condition": "requested-quotient-is-outside-signed-or-unsigned-W-range",
+        "tpc": "faulting-instruction",
+        "tval": 0,
+        "architectural_writes": "none"
+      }
+    ],
+    "operand_aliasing": {
+      "sources_may_alias_destinations": true,
+      "two_output_destinations": "must-be-distinct-or-encoding-is-illegal",
+      "double_width_source_halves": "may-name-the-same-register-because-both-values-are-captured-before-execution",
+      "source_capture": "all-source-values-before-any-destination-write"
+    },
+    "retirement": "all-results-and-optional-NZCV-publish-atomically-at-one-precise-retirement-boundary; faults-publish-no-writes",
+    "implementation": {
+      "multiply": "direct-decode-to-pipelined-full-product-uop",
+      "divide": "direct-decode-to-dedicated-iterative-divider-uop",
+      "microcode": "not-required-for-arithmetic-iteration",
+      "architectural_timing": "none"
+    },
+    "lineage_differences": [
+      "M64K adds native B and Q inputs, exact 128-bit Q widening multiply, and 128-by-64 wide divide.",
+      "M64K uses unified GPR operands and has no implicit memory operand.",
+      "M64K makes condition-state writes explicit through .F and always preserves X.",
+      "M64K reports quotient overflow as a precise synchronous fault instead of a V-only non-write result.",
+      "M64K divide faults save the faulting PC in native CSR trap state rather than using Motorola vector frames or next-PC trap semantics.",
+      "M64K provides explicit quotient-only, remainder-only, fused quotient-remainder, and double-width-dividend forms as single architectural operations."
+    ],
+    "verification": [
+      "exhaustive-byte-narrow-and-widening-multiply",
+      "exhaustive-byte-same-width-quotient-remainder-and-fused-divide",
+      "exhaustive-byte-double-width-dividend-boundary-partition",
+      "directed-word-long-quad-and-128-by-64-boundaries",
+      "divide-by-zero-before-overflow-priority",
+      "signed-minimum-divided-by-minus-one-result-selector-matrix",
+      "flag-and-X-preservation-matrices",
+      "two-output-atomic-retirement-and-no-write-on-fault"
+    ]
+  }
+}

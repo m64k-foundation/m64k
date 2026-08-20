@@ -13,8 +13,10 @@ The active repository contains only native M64K product sources and technology-n
 isa/native/          versioned machine-readable ISA and ABI contracts
 model/m64k/          independent executable architectural model
 docs/m64k/           normative specifications and engineering plans
-rtl/core/            frontend, rename, scheduling, execution, and retirement
-rtl/interfaces/      translation, memory, interrupt, debug, and control contracts
+rtl/packages/        minimal architecture-wide types with no higher-layer dependencies
+rtl/core/            frontend, rename, scheduling, execution, and retirement implementation
+rtl/core/execute/    typed execution units grouped by integer, shift, multiply/divide, branch, address-generation, floating-point, and microcode ownership
+rtl/interfaces/      public protocols grouped by translation, physical memory, interrupt, retirement, debug, and control domains
 rtl/memory/          MMU, TLB, caches, arrays, and memory bindings
 rtl/coherence/       directory, protocol engines, and coherence properties
 rtl/interconnect/    scalable transport, arbitration, and ordering points

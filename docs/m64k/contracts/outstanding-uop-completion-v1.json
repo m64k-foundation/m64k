@@ -1,0 +1,85 @@
+{
+  "$schema": "outstanding-uop-completion-schema-v1.json",
+  "contract": "m64k-outstanding-uop-completion-v1",
+  "status": "normative-first-product-implementation-contract",
+  "software_visible": false,
+  "topology": {
+    "scope": "per-core-shared-by-smt-siblings",
+    "product_cores": 4,
+    "hardware_threads_per_core": 2,
+    "rob_entries_per_core": 192,
+    "uops_per_allocation": 16,
+    "registration_lanes": 6,
+    "seal_lanes": 4,
+    "completion_lanes": 6,
+    "retirement_observation_lanes": 4
+  },
+  "identity": {
+    "lifetime_fields": ["core-id", "hardware-thread-id", "rob-index", "rob-generation", "allocation-sequence"],
+    "uop_fields": ["core-id", "hardware-thread-id", "rob-index", "rob-generation", "allocation-sequence", "uop-index"],
+    "core_id_bits": 6,
+    "hardware_thread_id_bits": 2,
+    "rob_index_bits": 8,
+    "rob_generation_bits": 8,
+    "allocation_sequence_bits": 64,
+    "uop_index_bits": 4,
+    "equality": "exact-full-width-no-hash-or-truncation"
+  },
+  "ownership_separation": {
+    "rob_lifetime": "external-exact-prerequisite",
+    "uop_membership": "registered-and-outstanding-in-this-tracker",
+    "speculative_publication": "typed-destination-role-authorization-only-after-accepted-completion",
+    "retirement": "never-authorized-by-this-contract"
+  },
+  "membership": {
+    "registration_view": "registered-current-lifetime-state",
+    "same_cycle_registration_completes": false,
+    "manifest_fields": ["data-role-mask", "nzcv-valid", "x-valid", "allowed-fault-class-set"],
+    "data_roles": ["LOW", "HIGH", "QUOTIENT", "REMAINDER"],
+    "duplicate_registration": "reject-all-conflicting-lanes-with-no-uop-state-change",
+    "membership_closure": "nonempty-explicit-seal-after-or-atomically-with-final-registration",
+    "registration_after_seal": "protocol-violation",
+    "uop_reuse": "forbidden-until-enclosing-rob-lifetime-release-or-recovery"
+  },
+  "completion": {
+    "acceptance_requires": ["rob-lifetime-match", "registered-member", "outstanding-not-completed", "unique-completion-lane", "not-released-or-recovered", "exact-terminal-payload"],
+    "success_payload": "exact-registered-data-role-mask-and-condition-state-without-fault",
+    "result_role_uniqueness": "each-selected-role-exactly-once",
+    "fault_payload": "one-registered-class-typed-fault-with-no-data-nzcv-or-x-publication",
+    "duplicate_completion": "protocol-violation-with-no-state-change-or-publication",
+    "all_uops_complete": "lifetime-match-and-nonempty-sealed-membership-and-every-member-completed",
+    "publication": "atomic-with-completion-acceptance",
+    "retirement_effect": "none"
+  },
+  "squash_and_reset": {
+    "release_and_recovery": "dominate-registration-seal-completion-readiness-fault-and-publication",
+    "clear_scope": "all-members-manifests-completions-seal-and-fault-state-for-selected-allocation",
+    "reset": "clear-valid-and-protocol-state-only",
+    "payload_reset": "forbidden-as-a-functional-requirement"
+  },
+  "formal_acceptance": [
+    "lifetime-prerequisite",
+    "exact-uop-membership",
+    "no-duplicate-completion",
+    "manifest-exactness",
+    "seal-closure",
+    "atomic-terminal-event",
+    "squash-atomicity",
+    "sibling-and-core-isolation",
+    "unused-index-rejection",
+    "noninterference",
+    "reset-hygiene",
+    "retirement-separation"
+  ],
+  "non_claims": [
+    "rob-lifetime-storage",
+    "instruction-ordering",
+    "oldest-instruction-selection",
+    "exception-priority",
+    "architectural-retirement",
+    "store-commitment",
+    "branch-recovery-mask-generation",
+    "physical-register-allocation",
+    "execution-result-value-generation"
+  ]
+}

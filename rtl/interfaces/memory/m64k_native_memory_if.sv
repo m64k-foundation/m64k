@@ -1,15 +1,16 @@
-interface m64k_native_translation_if (
+interface m64k_native_memory_if (
     input logic clk,
     input logic rst_n
 );
-    import m64k_native_contract_pkg::*;
+    import m64k_memory_types_pkg::*;
 
     logic request_valid;
     logic request_ready;
-    m64k_virtual_memory_request_t request;
+    m64k_physical_memory_request_t request;
+
     logic response_valid;
     logic response_ready;
-    m64k_translation_response_t response;
+    m64k_physical_memory_response_t response;
 
     property request_remains_stable_while_blocked;
         @(posedge clk) disable iff (!rst_n)
@@ -23,6 +24,13 @@ interface m64k_native_translation_if (
     endproperty
     assert property (response_remains_stable_while_blocked);
 
+    property compare_exchange_is_at_most_64_bits;
+        @(posedge clk) disable iff (!rst_n)
+            request_valid && (request.atomic_operation == M64K_ATOMIC_COMPARE_EXCHANGE) |->
+                request.size <= M64K_ACCESS_SIZE_8_BYTES;
+    endproperty
+    assert property (compare_exchange_is_at_most_64_bits);
+
     modport requester (
         output request_valid,
         output request,
@@ -32,7 +40,7 @@ interface m64k_native_translation_if (
         output response_ready
     );
 
-    modport translator (
+    modport responder (
         input request_valid,
         input request,
         output request_ready,

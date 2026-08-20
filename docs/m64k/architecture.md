@@ -29,7 +29,7 @@ Each hardware thread contains:
 - current privilege, interrupt enable and threshold, address-space identifier, and exception state;
 - profile, feature, address-width, topology, and implementation-identification control registers.
 
-Integer arithmetic wraps modulo its operand width unless the instruction contract says otherwise. Byte, word, long, and quad results are 8, 16, 32, and 64 bits. Ordinary byte, word, and long register results zero-extend to 64 bits; quad results replace all 64 bits. Sign extension is always explicit. Only `ADCX`, `SBCX`, and rotate-through-X operations read or write `X`; ordinary operations and `.F` forms preserve it.
+Integer arithmetic wraps modulo its operand width unless the instruction contract says otherwise. Byte, word, long, and quad results are 8, 16, 32, and 64 bits. Ordinary byte, word, and long register results zero-extend to 64 bits; quad results replace all 64 bits. Sign extension is always explicit. Only `ADCX`, `SBCX`, `NEGX`, and rotate-through-X operations read or write `X`; ordinary operations and `.F` forms preserve it.
 
 M64K v1 includes thirty-two 64-bit floating-point registers `f0-f31` holding scalar IEEE-754 FP32/FP64 values. Their operation, NaN, rounding, exception, fused-operation, and context contracts are versioned with v1. Motorola extended-precision and packed floating formats are not part of v1.
 

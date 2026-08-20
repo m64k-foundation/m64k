@@ -20,9 +20,9 @@ One assembly statement encodes one architectural instruction. One-to-one aliases
 | Phase | State | Evidence and remaining gate |
 |---|---|---|
 | P0 | In progress | Twelve primary documents pass identity, parser, page-count, and digest validation. Cross-repository release manifests and the complete delegated-source map remain open. |
-| P1 | In progress | Table 1-3 names, Appendix C integer variants, all Table C-3 forms, and all 42 Table C-4 cells are structurally inventoried. Instruction-form granularity, the system-contract corpus, erratum impact, and every multidimensional row review remain open. |
+| P1 | In progress | Table 1-3 names, Appendix C integer variants, all Table C-3 forms, and all 42 Table C-4 cells are structurally inventoried. The scalar integer ALU, shift/rotate, and multiply/divide tranches have cited English semantics, strict machine-readable contracts, and independent executable models, but this evidence does not yet close their lineage rows. Instruction-form granularity for the remaining corpus, the system-contract corpus, and erratum impact remain open. |
 | P2 | Draft only | Native64 state, LP64D direction, VA48/PA48, TSO, topology, and cache targets are documented, but encodings, CSRs, causes, PTE bits, ELF identity, relocations, and the ABI are not frozen. |
-| P3 | Started | A scalar semantic-model seed and SMP/SMT-aware interface contracts exist. Generated ISA artifacts, the complete model, typed uops, and microcode compiler/store do not. |
+| P3 | Started | The scalar integer ALU, shift/rotate, multiply, and divide primitives have independent executable-model contracts, warning-clean RTL, exhaustive byte plus directed wider-width tests, and generic synthesis evidence. The scalar integer ALU now has a registered wrapper carrying exact core/thread/ROB-generation/allocation/uop identity, with externally bound protocol assertions; this is one execution pipe, not a scheduler or complete typed-uop fabric. ROB allocation lifetime and outstanding-uop completion now have strict first-product contracts covering ROB192, SMT ownership, sequence64 rollover, recovery, typed publication, duplicate rejection, and retirement separation, but no ROB or completion-tracker RTL is claimed. The shared fast shifter is formally equivalent for its six supported operations, and its tagged six-cycle iterative ROX companion is functionally verified, but their current combined generic count misses the production acceptance threshold and remains unfrozen. The throughput-one multiplier and radix-4 divider are complete execution-unit baselines, not physically frozen implementations. Generated ISA artifacts, the complete model, the full typed-uop fabric, and the microcode compiler/store do not yet exist. |
 | P4 | Blocked | GCC, binutils-gdb, and Linux worktrees remain upstream baselines; no native backend or port is claimed. P2 must close first. |
 | P5-P8 | Not started | No production core, cache hierarchy, coherent product, firmware, Linux boot, FPGA closure, or ASIC signoff is claimed. |
 
@@ -66,11 +66,15 @@ Exit evidence: specification and machine-readable contract agree bit-for-bit; co
 - implement a complete independent executable model with deterministic retirement and memory-order traces;
 - define the private typed micro-operation contract with core, hardware-thread, ROB, transaction, privilege, and exception identity;
 - direct-decode frequent scalar, branch, load/store, and FP operations;
+- retain the complete scalar integer ALU and shift/rotate units as executable semantic references while implementation alternatives are proven equivalent;
+- replace the parallel functional shift/rotate reference before production freeze with one throughput-one 64-bit fast shift/rotate pipeline and a tagged iterative rotate-through-X path, unless technology-mapped PPA evidence proves a lower-cost fixed-latency alternative;
+- publish rotate-through-X result and persistent `X` state atomically at retirement; an interrupted, faulted, or squashed iterative operation must not leak intermediate state across a core or hardware-thread boundary;
+- retain the four-register tiled multiplier and radix-4 iterative divider as exact tagged baselines while Booth/compressor, radix, early-out, queueing, and physical integration alternatives are compared under identical constraints;
 - compile complex operations into a generated control store with checked entry points, bounded loops, explicit fault checkpoints, and precise retirement;
 - provide ECC/parity-protected base ROM with at least 25 percent unused capacity after v1 compilation and a 32-entry patch overlay;
 - allow Machine firmware to load patches only while secondary contexts are held, expose revision and digest CSRs, and lock the overlay until reset.
 
-Exit evidence: exhaustive legal/illegal model tests, direct-versus-microcode equivalence, patch-lock tests, fault-checkpoint tests, and reproducible generated artifacts.
+Exit evidence: exhaustive legal/illegal model tests, RTL-to-model and optimized-to-reference equivalence, direct-versus-microcode equivalence, patch-lock tests, fault-checkpoint tests, reproducible generated artifacts, and technology-mapped evidence that the selected shift/rotate organization is suitable for one shared execution pipe per core. Four-wide decode and retirement do not imply four replicated shifters.
 
 ## P4: toolchain waves
 

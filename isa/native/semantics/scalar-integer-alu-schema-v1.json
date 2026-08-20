@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://m64k.dev/schema/scalar-integer-alu-semantics-v1.json",
+  "title": "M64K v1 scalar integer ALU semantic contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "contract_id", "status", "encoding_status", "scope", "source_manifest", "sources", "operand_widths_bits", "writeback", "binary_operand_order", "operations", "condition_state", "memory", "privilege", "synchronous_exceptions", "retirement", "lineage_differences", "verification"],
+  "properties": {
+    "schema": {"const": "m64k.native.instruction-semantics/v1"},
+    "contract_id": {"const": "M64K-v1.scalar-integer-alu"},
+    "status": {"const": "normative-draft"},
+    "encoding_status": {"const": "unallocated"},
+    "scope": {"const": "Core scalar data, arithmetic, logical, compare, and test semantics independent of numeric encoding"},
+    "source_manifest": {"const": {"path": "../../../references/manuals/manifest.json", "schema": "m64k.reference-manual-manifest/v2"}},
+    "sources": {"const": [
+      {"document_id": "MC68060UM", "section": "1.9 Instruction Set Overview, Table 1-3 Instruction Set Summary", "pages": "1-16 through 1-20", "lineage_role": "MC68060 cut-line presence"},
+      {"document_id": "M68000PRM", "section": "Integer Instructions: ADD, ADDX, AND, CMP, EOR, NEG, NEGX, NOT, OR, SUB, SUBX, and TST", "pages": "4-3 through 4-16, 4-74 through 4-76, 4-99 through 4-101, 4-142 through 4-151, 4-173 through 4-175, 4-182 through 4-184, and 4-191 through 4-192", "lineage_role": "delegated result and condition-code semantics"}
+    ]},
+    "operand_widths_bits": {"const": [8, 16, 32, 64]},
+    "writeback": {"const": "truncate-to-operand-width-then-zero-extend-to-64"},
+    "binary_operand_order": {"const": "left-operation-right"},
+    "operations": {"const": [
+      {"id": "ADD", "result": "left+right modulo 2^W", "destination": "gpr", "reads_x": false, "writes_x": false, "flag_mode": "optional-F", "carry": "unsigned-carry", "overflow": "signed-add-overflow"},
+      {"id": "SUB", "result": "left-right modulo 2^W", "destination": "gpr", "reads_x": false, "writes_x": false, "flag_mode": "optional-F", "carry": "unsigned-borrow", "overflow": "signed-subtract-overflow"},
+      {"id": "ADCX", "result": "left+right+X modulo 2^W", "destination": "gpr", "reads_x": true, "writes_x": true, "flag_mode": "optional-F", "carry": "unsigned-carry-and-resulting-X", "overflow": "signed-add-with-X-overflow"},
+      {"id": "SBCX", "result": "left-right-X modulo 2^W", "destination": "gpr", "reads_x": true, "writes_x": true, "flag_mode": "optional-F", "carry": "unsigned-borrow-and-resulting-X", "overflow": "signed-subtract-with-X-overflow"},
+      {"id": "AND", "result": "left bitwise-and right", "destination": "gpr", "reads_x": false, "writes_x": false, "flag_mode": "optional-F", "carry": "false", "overflow": "false"},
+      {"id": "OR", "result": "left bitwise-or right", "destination": "gpr", "reads_x": false, "writes_x": false, "flag_mode": "optional-F", "carry": "false", "overflow": "false"},
+      {"id": "XOR", "result": "left bitwise-xor right", "destination": "gpr", "reads_x": false, "writes_x": false, "flag_mode": "optional-F", "carry": "false", "overflow": "false"},
+      {"id": "NOT", "result": "bitwise-not source", "destination": "gpr", "reads_x": false, "writes_x": false, "flag_mode": "optional-F", "carry": "false", "overflow": "false"},
+      {"id": "NEG", "result": "0-source modulo 2^W", "destination": "gpr", "reads_x": false, "writes_x": false, "flag_mode": "optional-F", "carry": "source-is-nonzero", "overflow": "source-is-signed-minimum"},
+      {"id": "NEGX", "result": "0-source-X modulo 2^W", "destination": "gpr", "reads_x": true, "writes_x": true, "flag_mode": "optional-F", "carry": "unsigned-borrow-and-resulting-X", "overflow": "signed-negate-with-X-overflow"},
+      {"id": "CMP", "result": "left-right flags only", "destination": "none", "reads_x": false, "writes_x": false, "flag_mode": "always", "carry": "unsigned-borrow", "overflow": "signed-subtract-overflow"},
+      {"id": "TST", "result": "source flags only", "destination": "none", "reads_x": false, "writes_x": false, "flag_mode": "always", "carry": "false", "overflow": "false"}
+    ]},
+    "condition_state": {"const": {"ordinary_without_F": "preserve-NZCV", "F_and_always_forms": {"N": "result[W-1]", "Z": "result[W-1:0] == 0", "V": "operation-overflow-rule", "C": "operation-carry-rule"}, "X": "ADCX-SBCX-and-NEGX-write-resulting-carry-or-borrow; all-other-operations-preserve-X", "zero_is_sticky": false}},
+    "memory": {"const": "no-memory-operand-or-side-effect"},
+    "privilege": {"const": "all-levels"},
+    "synchronous_exceptions": {"const": []},
+    "retirement": {"const": "zero-or-one-GPR-write-plus-optional-NZCV-write-plus-optional-X-write-at-one-precise-retirement-boundary"},
+    "lineage_differences": {"const": ["M64K adds native 64-bit Q width and unified GPR operands.", "M64K has no implicit memory operand for this tranche.", "M64K narrow GPR results zero-extend to 64 bits.", "M64K ordinary destination-producing forms update NZCV only with explicit .F.", "M64K uses fresh non-sticky Z for ADCX, SBCX, and NEGX.", "M64K names the exclusive-or operation XOR while retaining EOR as historical lineage only."]},
+    "verification": {"const": ["exhaustive-byte-binary-and-unary-matrices", "directed-word-long-quad-boundaries", "signed-overflow-and-unsigned-carry-borrow-boundaries", "X-zero-and-one-matrices", "flag-preservation-without-F", "model-to-RTL-retirement-equivalence"]}
+  }
+}

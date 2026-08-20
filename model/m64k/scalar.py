@@ -69,6 +69,19 @@ class Condition(Enum):
     LESS_OR_EQUAL = 15
 
 
+class ShiftOperation(Enum):
+    """Architectural scalar shift and rotate operations."""
+
+    ARITHMETIC_LEFT = "ASL"
+    ARITHMETIC_RIGHT = "ASR"
+    LOGICAL_LEFT = "LSL"
+    LOGICAL_RIGHT = "LSR"
+    ROTATE_LEFT = "ROL"
+    ROTATE_RIGHT = "ROR"
+    ROTATE_EXTEND_LEFT = "ROXL"
+    ROTATE_EXTEND_RIGHT = "ROXR"
+
+
 def _masked(value: int, size: OperandSize) -> int:
     return value & size.mask
 
@@ -105,7 +118,7 @@ def sign_extend(value: int, size: OperandSize) -> int:
 
 
 def add(left: int, right: int, size: OperandSize, *, update_flags: bool = False) -> IntegerResult:
-    """Add two sized operands and optionally produce NZVC.
+    """Add two sized operands and optionally produce NZCV.
 
     C is the unsigned carry out of the selected operand width.
     """
@@ -125,7 +138,7 @@ def add(left: int, right: int, size: OperandSize, *, update_flags: bool = False)
 
 
 def subtract(left: int, right: int, size: OperandSize, *, update_flags: bool = False) -> IntegerResult:
-    """Subtract right from left and optionally produce NZVC.
+    """Subtract right from left and optionally produce NZCV.
 
     For subtraction, C is one when the unsigned operation borrows. This keeps
     the familiar M64K `CS`, `CC`, `HI`, and `LS` condition relationships.
@@ -192,6 +205,40 @@ def bitwise_xor(left: int, right: int, size: OperandSize, *, update_flags: bool 
     return _logical_result(left ^ right, size, update_flags)
 
 
+def bitwise_not(value: int, size: OperandSize, *, update_flags: bool = False) -> IntegerResult:
+    """Complement the selected operand width and preserve upper GPR bits only as zeros."""
+
+    return _logical_result(~value, size, update_flags)
+
+
+def negate(value: int, size: OperandSize, *, update_flags: bool = False) -> IntegerResult:
+    """Subtract the selected-width operand from zero."""
+
+    return subtract(0, value, size, update_flags=update_flags)
+
+
+def negate_with_extend(value: int, extend: bool, size: OperandSize, *, update_flags: bool = False) -> IntegerResult:
+    """Subtract the operand and persistent X input from zero and produce X."""
+
+    return subtract_with_extend(0, value, extend, size, update_flags=update_flags)
+
+
+def compare(left: int, right: int, size: OperandSize) -> ConditionFlags:
+    """Compare left with right without producing a GPR destination."""
+
+    result = subtract(left, right, size, update_flags=True)
+    if result.flags is None:
+        raise AssertionError("Flag-producing subtraction did not return condition state")
+    return result.flags
+
+
+def test(value: int, size: OperandSize) -> ConditionFlags:
+    """Compute fresh N and Z while clearing V and C and producing no GPR write."""
+
+    negative, zero = _nz(value, size)
+    return ConditionFlags(negative, zero, False, False)
+
+
 def _logical_result(value: int, size: OperandSize, update_flags: bool) -> IntegerResult:
     result = _masked(value, size)
     if not update_flags:
@@ -201,8 +248,82 @@ def _logical_result(value: int, size: OperandSize, update_flags: bool) -> Intege
     return IntegerResult(result, ConditionFlags(negative, zero, False, False))
 
 
+def shift_rotate(
+    value: int,
+    count: int,
+    size: OperandSize,
+    operation: ShiftOperation,
+    *,
+    extend: bool = False,
+    update_flags: bool = False,
+) -> IntegerResult:
+    """Execute one complete scalar shift or rotate contract.
+
+    The architectural count is always the low six bits. Rotate-through-X uses
+    a width-plus-one ring; the other rotates use a width-bit ring. Only the
+    rotate-through-X operations publish a new X value.
+    """
+
+    operand = _masked(value, size)
+    shift_count = count & 0x3F
+    width = size.value
+    carry = False
+    overflow = False
+    extend_result: bool | None = None
+
+    if operation in {ShiftOperation.LOGICAL_LEFT, ShiftOperation.ARITHMETIC_LEFT}:
+        result = _masked(operand << shift_count, size)
+        if 0 < shift_count <= width:
+            carry = bool((operand >> (width - shift_count)) & 1)
+        if operation is ShiftOperation.ARITHMETIC_LEFT:
+            overflow = _signed_result_overflows(_as_signed(operand, size) << shift_count, size)
+    elif operation is ShiftOperation.LOGICAL_RIGHT:
+        result = operand >> shift_count
+        if 0 < shift_count <= width:
+            carry = bool((operand >> (shift_count - 1)) & 1)
+    elif operation is ShiftOperation.ARITHMETIC_RIGHT:
+        signed_operand = _as_signed(operand, size)
+        result = _masked(signed_operand >> shift_count, size)
+        if shift_count:
+            carry_bit = min(shift_count, width) - 1
+            carry = bool((operand >> carry_bit) & 1)
+    elif operation in {ShiftOperation.ROTATE_LEFT, ShiftOperation.ROTATE_RIGHT}:
+        rotate_count = shift_count % width
+        if rotate_count == 0:
+            result = operand
+        elif operation is ShiftOperation.ROTATE_LEFT:
+            result = _masked((operand << rotate_count) | (operand >> (width - rotate_count)), size)
+        else:
+            result = _masked((operand >> rotate_count) | (operand << (width - rotate_count)), size)
+        if shift_count:
+            carry = bool(result & 1) if operation is ShiftOperation.ROTATE_LEFT else bool(result & size.sign_bit)
+    elif operation in {ShiftOperation.ROTATE_EXTEND_LEFT, ShiftOperation.ROTATE_EXTEND_RIGHT}:
+        ring_width = width + 1
+        ring_mask = (1 << ring_width) - 1
+        ring = (operand << 1) | int(extend)
+        rotate_count = shift_count % ring_width
+        if rotate_count == 0:
+            rotated_ring = ring
+        elif operation is ShiftOperation.ROTATE_EXTEND_LEFT:
+            rotated_ring = ((ring << rotate_count) | (ring >> (ring_width - rotate_count))) & ring_mask
+        else:
+            rotated_ring = ((ring >> rotate_count) | (ring << (ring_width - rotate_count))) & ring_mask
+        result = (rotated_ring >> 1) & size.mask
+        extend_result = bool(rotated_ring & 1)
+        carry = extend_result
+    else:
+        raise AssertionError(f"Unhandled shift operation {operation!r}")
+
+    result = _masked(result, size)
+    if not update_flags:
+        return IntegerResult(result, extend=extend_result)
+
+    negative, zero = _nz(result, size)
+    return IntegerResult(result, ConditionFlags(negative, zero, overflow, carry), extend_result)
+
+
 def evaluate_condition(condition: Condition, flags: ConditionFlags) -> bool:
-    """Evaluate one architectural condition from a committed NZVC value."""
+    """Evaluate one architectural condition from a committed NZCV value."""
 
     if condition is Condition.TRUE:
         return True

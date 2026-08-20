@@ -1,0 +1,45 @@
+{
+  "$schema": "rob-allocation-lifetime-schema-v1.json",
+  "contract": "m64k-rob-allocation-lifetime-v1",
+  "status": "normative-first-product-implementation-contract",
+  "software_visible": false,
+  "topology": {
+    "scope": "per-core-shared-by-smt-siblings",
+    "entries": 192,
+    "hardware_threads": 2,
+    "allocation_lanes": 4,
+    "release_lanes": 4,
+    "validation_lanes": 6,
+    "recovery_mask_bits": 192
+  },
+  "identity": {
+    "stored_fields": ["hardware-thread-id", "rob-generation", "allocation-sequence"],
+    "core_check": "request-core-equals-local-core",
+    "index_check": "0-through-191-only",
+    "generation_bits": 8,
+    "allocation_sequence_bits": 64,
+    "uop_membership_owner": "separate-outstanding-uop-completion-tracker",
+    "rollover": "stop-allocation-and-prove-all-tagged-holders-drained-before-reuse"
+  },
+  "cycle_semantics": {
+    "validation_view": "registered-current-state",
+    "release_suppresses_match": true,
+    "recovery_suppresses_match": true,
+    "same_cycle_allocation_matches": false,
+    "same_index_turnover": "exact-release-then-distinct-allocation-at-edge",
+    "recovery_dominance": "clear-and-reject-same-index-allocation",
+    "conflict_policy": "protocol-violation-with-no-conflicting-index-update",
+    "reset": "clear-live-bits-only"
+  },
+  "non_claims": [
+    "rob-payload",
+    "instruction-ordering",
+    "branch-checkpoint-generation",
+    "exception-priority",
+    "destination-readiness",
+    "physical-register-writeback",
+    "duplicate-completion-detection",
+    "store-visibility",
+    "retirement"
+  ]
+}

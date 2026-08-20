@@ -24,9 +24,15 @@ A document is normative only where it says so. Draft encodings and ABI assignmen
 - [mmu.md](mmu.md): canonical addresses, translation, page tables, permissions, and TLB maintenance.
 - [multicore.md](multicore.md): first-product coherent SMP boot, interrupts, and two-way SMT.
 - [cache-hierarchy.md](cache-hierarchy.md): private L1/L2 and shared banked L3 organization.
+- [first-product-target.md](first-product-target.md): machine-checked 4C2T, four-wide, six-issue, ROB-192 destination and D0 interface constraints.
+- [rob-allocation-lifetime.md](rob-allocation-lifetime.md): exact ROB allocation ownership, stale-response rejection, speculative recovery, and allocation-sequence rollover rules.
+- [outstanding-uop-completion.md](outstanding-uop-completion.md): exact uop membership, terminal-completion validation, typed speculative publication, and strict retirement separation.
+- [rob-completion-physical-candidates.md](rob-completion-physical-candidates.md): quantified lifetime/completion storage candidates, bank conflicts, validation placement, SRAM feasibility, and controlled PPA/formal selection gates.
 - [implementation-plan.md](implementation-plan.md): ordered M64K v1 delivery and silicon gates.
 
 Supporting engineering documents describe implementation mechanisms and repository policy. They do not extend the native ISA.
+
+- [shared-shift-rotate-candidate.md](shared-shift-rotate-candidate.md): complete tagged shared-barrel experiment, verification evidence, structural QoR, and explicit production-selection rejection.
 
 ## Profiles
 
