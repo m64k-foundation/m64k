@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://m64k.dev/schema/native-contract-v2.json",
+  "title": "M64K v1 native 64-bit architecture contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "isa_family", "isa_version", "profile_kind", "status", "backend_claims", "registers", "scalar_widths", "assembly", "floating_point", "product_topology", "encoding", "semantic_baseline", "conditions", "privilege", "atomics", "abi", "mmu", "cache"],
+  "properties": {
+    "schema": {"const": "m64k.native.contract/v2"},
+    "isa_family": {"const": "M64K-native"},
+    "isa_version": {"const": "M64K-v1"},
+    "profile_kind": {"const": "native-64-system-profile"},
+    "status": {"enum": ["development", "frozen", "implemented", "verified"]},
+    "backend_claims": {"$ref": "#/$defs/backendClaims"},
+    "registers": {"type": "object"},
+    "scalar_widths": {"type": "object"},
+    "assembly": {"$ref": "#/$defs/assembly"},
+    "floating_point": {"$ref": "#/$defs/floatingPoint"},
+    "product_topology": {"$ref": "#/$defs/productTopology"},
+    "encoding": {"type": "object"},
+    "semantic_baseline": {"$ref": "#/$defs/semanticBaseline"},
+    "conditions": {"type": "array", "minItems": 16, "maxItems": 16},
+    "privilege": {"type": "object"},
+    "atomics": {"type": "object"},
+    "abi": {"type": "object"},
+    "mmu": {"type": "object"},
+    "cache": {"type": "object"}
+  },
+  "$defs": {
+    "assembly": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["architectural_statement", "multi_instruction_pseudoinstructions", "aliases", "familiar_m68k_names", "source_compatibility_claim"],
+      "properties": {
+        "architectural_statement": {"const": "exactly-one-instruction"},
+        "multi_instruction_pseudoinstructions": {"const": "forbidden"},
+        "aliases": {"const": "one-to-one-encoding-only"},
+        "familiar_m68k_names": {"const": "permitted-only-when-m64k-semantics-are-explicitly-equivalent"},
+        "source_compatibility_claim": {"const": false}
+      }
+    },
+    "floatingPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "standard", "formats", "fused_multiply_add", "extended_binary80", "packed_decimal"],
+      "properties": {
+        "required": {"const": true},
+        "standard": {"const": "IEEE-754-2019"},
+        "formats": {"const": ["binary32", "binary64"]},
+        "fused_multiply_add": {"const": true},
+        "extended_binary80": {"const": false},
+        "packed_decimal": {"const": false}
+      }
+    },
+    "productTopology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cores", "hardware_threads_per_core", "architectural_contexts", "identity_contract"],
+      "properties": {
+        "cores": {"const": 4},
+        "hardware_threads_per_core": {"const": 2},
+        "architectural_contexts": {"const": 8},
+        "identity_contract": {"const": "core-hardware-thread-transaction-privilege-domain-address-space-explicit"}
+      }
+    },
+    "backendClaims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["semantic_inventory_closed", "encoding_frozen", "elf_abi_frozen", "assembler_ready", "disassembler_ready", "linker_ready", "compiler_backend_ready", "linux_uapi_ready", "rtl_decoder_ready", "backend_ready", "blockers"],
+      "properties": {
+        "semantic_inventory_closed": {"type": "boolean"},
+        "encoding_frozen": {"type": "boolean"},
+        "elf_abi_frozen": {"type": "boolean"},
+        "assembler_ready": {"type": "boolean"},
+        "disassembler_ready": {"type": "boolean"},
+        "linker_ready": {"type": "boolean"},
+        "compiler_backend_ready": {"type": "boolean"},
+        "linux_uapi_ready": {"type": "boolean"},
+        "rtl_decoder_ready": {"type": "boolean"},
+        "backend_ready": {"type": "boolean"},
+        "blockers": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "semanticBaseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["compatibility_claim", "cut_line", "closed_world", "semantic_inventory", "coverage_policy", "corpus_closure", "source_documents", "inventory", "ledger"],
+      "properties": {
+        "compatibility_claim": {"const": false},
+        "cut_line": {"const": "MC68060"},
+        "closed_world": {"const": true},
+        "semantic_inventory": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "schema", "required_status_for_closure"],
+          "properties": {
+            "path": {"const": "mc68060-semantic-cut-line.json"},
+            "schema": {"const": "m64k.mc68060-semantic-cut-line/v2"},
+            "required_status_for_closure": {"const": "approved"}
+          }
+        },
+        "coverage_policy": {"$ref": "#/$defs/coveragePolicy"},
+        "corpus_closure": {"$ref": "#/$defs/corpusClosure"},
+        "source_documents": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/sourceDocument"}},
+        "inventory": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/inventoryItem"}},
+        "ledger": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/ledgerEntry"}}
+      }
+    },
+    "coveragePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["computational_baseline_member", "architectural_statement", "computational_lineage_dispositions", "legacy_system_lineage_dispositions", "architectural_identities", "lowering_strategies", "microcode_visibility", "alias_expansion"],
+      "properties": {
+        "computational_baseline_member": {"const": "architectural-m64k-analogue-required"},
+        "architectural_statement": {"const": "exactly-one-instruction"},
+        "computational_lineage_dispositions": {"const": ["native-analogue"]},
+        "legacy_system_lineage_dispositions": {"const": ["modern-system-replacement", "rejected"]},
+        "architectural_identities": {"const": ["distinct-instruction", "one-to-one-alias", "system-facility", "absent", "unresolved"]},
+        "lowering_strategies": {"const": ["direct-uops", "microcode", "no-execution", "unresolved"]},
+        "microcode_visibility": {"const": "architecturally-invisible"},
+        "alias_expansion": {"const": "exactly-one-identical-encoding"}
+      }
+    },
+    "corpusClosure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "required_granularity", "blockers"],
+      "properties": {
+        "status": {"enum": ["incomplete", "closed"]},
+        "required_granularity": {"type": "string", "minLength": 1},
+        "blockers": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "sourceDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document_id", "title", "revision", "sha256"],
+      "properties": {
+        "document_id": {"type": "string", "minLength": 1},
+        "title": {"type": "string", "minLength": 1},
+        "revision": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "inventoryItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline_id", "kind", "member_enumeration_complete"],
+      "properties": {
+        "baseline_id": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["instruction", "instruction-family", "instruction-corpus", "system", "system-corpus"]},
+        "member_enumeration_complete": {"type": "boolean"}
+      }
+    },
+    "citation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document_id", "section", "pages"],
+      "properties": {
+        "document_id": {"type": "string", "minLength": 1},
+        "section": {"type": "string", "minLength": 1},
+        "pages": {"type": "string", "minLength": 1}
+      }
+    },
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relation", "detail"],
+      "properties": {
+        "relation": {"enum": ["adopted", "modified", "rejected", "new", "not-applicable"]},
+        "detail": {"type": "string", "minLength": 1}
+      }
+    },
+    "disposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["encoding", "widths", "registers", "operands", "result", "flags_predicates", "exceptions", "restart", "memory", "privilege", "state_formats", "implementation"],
+      "properties": {
+        "encoding": {"$ref": "#/$defs/dimension"},
+        "widths": {"$ref": "#/$defs/dimension"},
+        "registers": {"$ref": "#/$defs/dimension"},
+        "operands": {"$ref": "#/$defs/dimension"},
+        "result": {"$ref": "#/$defs/dimension"},
+        "flags_predicates": {"$ref": "#/$defs/dimension"},
+        "exceptions": {"$ref": "#/$defs/dimension"},
+        "restart": {"$ref": "#/$defs/dimension"},
+        "memory": {"$ref": "#/$defs/dimension"},
+        "privilege": {"$ref": "#/$defs/dimension"},
+        "state_formats": {"$ref": "#/$defs/dimension"},
+        "implementation": {"$ref": "#/$defs/dimension"}
+      }
+    },
+    "ledgerEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline_id", "m64k_contract_ids", "lineage_disposition", "architectural_identity", "lowering_strategy", "review_status", "sources", "disposition", "verification"],
+      "properties": {
+        "baseline_id": {"type": "string", "minLength": 1},
+        "m64k_contract_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "lineage_disposition": {"enum": ["native-analogue", "modern-system-replacement", "rejected", "new"]},
+        "architectural_identity": {"enum": ["distinct-instruction", "one-to-one-alias", "system-facility", "absent", "unresolved"]},
+        "lowering_strategy": {"enum": ["direct-uops", "microcode", "no-execution", "unresolved"]},
+        "review_status": {"enum": ["inventory-required", "draft", "reviewed", "approved", "rejected"]},
+        "sources": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/citation"}},
+        "disposition": {"$ref": "#/$defs/disposition"},
+        "verification": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    }
+  }
+}

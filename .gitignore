@@ -4,6 +4,9 @@
 /dist/
 /tools/downloads/
 /tools/toolchains/
+/tools/sources/
+/references/manuals/*.pdf
+/references/manuals/*.txt
 /microrom.mem
 /nanorom.mem
 /rom.hex

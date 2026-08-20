@@ -1,0 +1,184 @@
+{
+  "schema": "m64k.reference-manual-manifest/v2",
+  "documents": [
+    {
+      "filename": "MC68060UM.pdf",
+      "title": "M68060 User's Manual",
+      "document_id": "MC68060UM",
+      "revision": "1",
+      "published": "1994-12-31",
+      "url": "https://cache.nxp.com/docs/en/data-sheet/MC68060UM.pdf",
+      "source_page": "https://www.nxp.com/products/MC68060",
+      "sha256": "313fd672dfac8f1d1bb580ad61e8e1583a38b07fb4e2891aff7f29ef49d3ef40",
+      "page_count": 416,
+      "identity_markers": [
+        "M68060 User's Manual"
+      ]
+    },
+    {
+      "filename": "MC68060UMAD.pdf",
+      "title": "Addendum to MC68060 User Manual",
+      "document_id": "MC68060UMAD/AD",
+      "revision": "0",
+      "published": "1998-03-25",
+      "url": "https://cache.nxp.com/docs/en/reference-manual/MC68060UMAD.pdf",
+      "source_page": "https://www.nxp.com/products/MC68060",
+      "sha256": "7d43c762f49a3ad3b0856e7425432c44ebd199de0ae619d1b3342429ba91b91a",
+      "page_count": 2,
+      "identity_markers": [
+        "MC68060UMAD/AD",
+        "Addendum to MC68060 User Manual"
+      ]
+    },
+    {
+      "filename": "MC68060DE.pdf",
+      "title": "MC68060 Production Device Errata",
+      "document_id": "MC68060DE",
+      "revision": "4.0",
+      "published": "1996-10-18",
+      "url": "https://cache.nxp.com/docs/en/errata/MC68060DE.pdf",
+      "source_page": "https://www.nxp.com/products/MC68060",
+      "sha256": "8d396ab5ef7757dfeec84b61ed7ad96e92a1339da59949be6bb90257961f046f",
+      "page_count": 12,
+      "identity_markers": [
+        "68060 ERRATA",
+        "Rev 4.0"
+      ]
+    },
+    {
+      "filename": "M68000PRM.pdf",
+      "title": "M68000 Family Programmer's Reference Manual",
+      "document_id": "M68000PRM",
+      "revision": "1992 edition",
+      "published": "1992-01-01",
+      "url": "https://cache.nxp.com/docs/en/reference-manual/M68000PRM.pdf",
+      "source_page": "https://www.nxp.com/products/MC68000",
+      "sha256": "06e4864b78da0e815054cead9326b7ec9914661f240fd39a455f2061ff47c4e8",
+      "page_count": 646,
+      "identity_markers": [
+        "M68000 Family Programmer's Reference Manual"
+      ]
+    },
+    {
+      "filename": "M68000PRMER.pdf",
+      "title": "68K Programmer's Reference Manual Errata",
+      "document_id": "M68000PRMER",
+      "revision": "1",
+      "published": "2007-03-26",
+      "url": "https://cache.nxp.com/docs/en/reference-manual/M68000PRMER.pdf",
+      "source_page": "https://www.nxp.com/products/MC68000",
+      "sha256": "8ae8228b3e2e54169a4e50310eafcbc14531740c57638b8c419c9751f4e88dc9",
+      "page_count": 4,
+      "identity_markers": [
+        "M68000PRMER",
+        "68K Programmer's Reference Manual Errata"
+      ]
+    },
+    {
+      "filename": "MC68000UM.pdf",
+      "title": "M68000 8-/16-/32-Bit Microprocessors User's Manual",
+      "document_id": "MC68000UM",
+      "revision": "9.1",
+      "published": "2006-01-25",
+      "url": "https://cache.nxp.com/docs/en/reference-manual/MC68000UM.pdf",
+      "source_page": "https://www.nxp.com/products/MC68000",
+      "sha256": "89b690b1923f8a3cff508567090bcab0bcd07511c2deff8ffa393a08efda18e1",
+      "page_count": 189,
+      "identity_markers": [
+        "M68000 8-/16-/32-Bit Microprocessors User's Manual",
+        "Ninth Edition"
+      ]
+    },
+    {
+      "filename": "MC68020UM.pdf",
+      "title": "MC68020/MC68EC020 Microprocessors User's Manual",
+      "document_id": "MC68020UM",
+      "revision": "1",
+      "published": "1992-01-01",
+      "url": "https://cache.nxp.com/docs/en/data-sheet/MC68020UM.pdf",
+      "source_page": "https://www.nxp.com/products/MC68020",
+      "sha256": "fbe70a64cd3c15141d2d351b992bc58247875975325714cd53c0dc6f2ebfdea8",
+      "page_count": 306,
+      "identity_markers": [
+        "MC68020 MC68EC020 Microprocessors User's Manual",
+        "First Edition"
+      ]
+    },
+    {
+      "filename": "MC68020UMAD.pdf",
+      "title": "Errata to MC68020/MC68EC020 Microprocessor User's Manual",
+      "document_id": "MC68020UMAD",
+      "revision": "2",
+      "published": "2003-01-22",
+      "url": "https://cache.nxp.com/docs/en/reference-manual/MC68020UMAD.pdf",
+      "source_page": "https://www.nxp.com/products/MC68020",
+      "sha256": "a3d99d42575e46f87fe267377f0d3dd802bf0f5a3a840cf33a5f8da40dc7ba29",
+      "page_count": 4,
+      "identity_markers": [
+        "MC68020UMAD",
+        "Errata to MC68020 / MC68EC020 Microprocessor User's Manual"
+      ]
+    },
+    {
+      "filename": "MC68030UM.pdf",
+      "title": "MC68030 Enhanced 32-Bit Microprocessor User's Manual",
+      "document_id": "MC68030UM",
+      "revision": "3",
+      "published": "1992-01-01",
+      "url": "https://cache.nxp.com/docs/en/reference-manual/MC68030UM.pdf",
+      "source_page": "https://www.nxp.com/products/MC68030",
+      "sha256": "07a676828a5e476b96f24a8b963fd06b79b5860dac35166a182205ecbb9c7f95",
+      "page_count": 599,
+      "identity_markers": [
+        "MC68030UM/AD",
+        "Enhanced 32-Bit Microprocessor User's Manual",
+        "Third Edition"
+      ]
+    },
+    {
+      "filename": "MC68040UM.pdf",
+      "title": "M68040 User's Manual",
+      "document_id": "MC68040UM",
+      "revision": "1",
+      "published": "1993-12-31",
+      "url": "https://cache.nxp.com/docs/en/reference-manual/MC68040UM.pdf",
+      "source_page": "https://www.nxp.com/products/MC68040",
+      "sha256": "aed5a038586dd2f610068efa01919fc552dc65bfd1a9274a333bad29dbd48894",
+      "page_count": 442,
+      "identity_markers": [
+        "M68040 User's Manual",
+        "Revised 1992, 1993"
+      ]
+    },
+    {
+      "filename": "MC68040UMAD.pdf",
+      "title": "Addendum to MC68040 User Manual",
+      "document_id": "MC68040UMAD/AD",
+      "revision": "0.1",
+      "published": "1998-06-22",
+      "url": "https://cache.nxp.com/docs/en/reference-manual/MC68040UMAD.pdf",
+      "source_page": "https://www.nxp.com/products/MC68040",
+      "sha256": "b6cea7757637d5f37908d36d8e2c4def1d10ce5ccf2ef5b1fb29067b081047e8",
+      "page_count": 5,
+      "identity_markers": [
+        "MC68040UMAD/AD",
+        "Addendum to MC68040 User Manual"
+      ]
+    },
+    {
+      "filename": "MC68040UMAD2.pdf",
+      "title": "MC68040 User's Manual Errata",
+      "document_id": "MC68040UMAD2",
+      "revision": "0",
+      "published": "2006-03-15",
+      "url": "https://cache.nxp.com/docs/en/reference-manual/MC68040UMAD2.pdf",
+      "source_page": "https://www.nxp.com/products/MC68040",
+      "sha256": "9f87cce605034e0e6bff0357175b7cfa986b58a9de979a6b9d9fc0169499db06",
+      "page_count": 4,
+      "identity_markers": [
+        "MC68040UMAD2",
+        "MC68040 User's Manual Errata"
+      ]
+    }
+  ]
+}

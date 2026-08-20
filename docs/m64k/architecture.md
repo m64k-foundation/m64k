@@ -1,126 +1,60 @@
-# M64K architecture direction
+# M64K native architecture
 
 | Field | Value |
 |---|---|
-| Status | Draft; compatibility behavior is normative only for audited implemented M00 contracts |
-| Version | 0.1-development |
-| Scope | M00 through M60 compatibility and native M64K execution |
-| Compatibility | Big-endian M00 reset; native ABI and encodings are not frozen |
+| Status | Normative draft |
+| Version | 0.2-development |
+| Scope | Unified native M64K v1 architecture |
+| Compatibility | No M68K binary, ABI, effective-address, trap-frame, or source compatibility is provided |
 
-The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** in normative sections are to be interpreted as described by RFC 2119 and RFC 8174 when, and only when, they appear in all capitals.
+The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** in normative sections are interpreted as described by RFC 2119 and RFC 8174.
 
-## Architecture boundary
+## Version model
 
-M64K has two architectural execution domains:
+M64K v1 is one public architecture profile. It includes the native scalar ISA, U/S/M privilege, precise CSR traps, TSO, coherent atomics, the VA48/PA48 MMU, mandatory IEEE-754 scalar FP32/FP64 with fused multiply-add, and the LP64D ABI. Integer-only bring-up is an implementation stage of this same profile and never creates a second ABI or externally visible subset. The first product target is four cores with two hardware threads per core.
 
-1. **M68K compatibility domain.** Software observes the selected Motorola-compatible profile, including its register widths, effective addresses, privilege model, exceptions, stack frames, and instruction encodings.
-2. **Native M64K domain.** Software can use 64-bit scalar state, a larger register namespace, wider virtual and physical addresses, new system state, and versioned extensions.
+An implementation claiming M64K v1 MUST implement every v1 requirement. It MUST NOT advertise a partially implemented v1 profile. Optional facilities use independent extension identifiers and context-state discovery.
 
-Compatibility mode is not a 64-bit reinterpretation of M68K opcodes. Existing binaries retain their documented 8 data registers, 8 address registers, 32-bit arithmetic, 32-bit PC behavior, and profile-specific exceptions. Native mode may share physical implementation resources, micro-operations, caches, predictors, and execution units, but it has an independently specified architectural contract.
+The MC68060 instruction inventory is the mandatory semantic cut line for the v1 computational vocabulary. Each computational family receives a native architectural analogue using M64K registers and operand forms. Legacy system state is replaced by the corresponding M64K CSR, trap, MMU, cache, power, or platform facility. This rule does not import Motorola encodings, effective-address modes, D/A register banks, partial-register behavior, status-register layout, hardware exception frames, or 32-bit address wrapping.
 
-Reset MUST enter big-endian supervisor M00-compatible state and obtain its initial stack pointer and PC using the M00 reset-vector contract. A future transition to native M64K MUST be privileged, serializing, restart-safe, and explicitly specified before an opcode is allocated. The transition must drain or invalidate speculative frontend state and establish all newly visible state deterministically. No provisional transition mnemonic or encoding is ABI.
+## Scalar architectural state
 
-## Compatibility profiles
+Each hardware thread contains:
 
-Profiles are cumulative only where the corresponding Motorola generation is cumulative. Generation-specific removals, changed exception frames, timing-independent semantic differences, and optional units remain explicit.
+- thirty-two writable 64-bit integer registers `r0-r31`; no register is hardwired to zero;
+- a 64-bit program counter `PC`;
+- `N`, `Z`, `C`, and `V` condition state written only by explicit `.F` instruction forms;
+- one persistent per-thread `X` extend bit, independently renameable from `NZCV`;
+- eight predicates `p0-p7`, where `p0` always reads true and ignores writes while `p1-p7` are writable per-thread state;
+- current privilege, interrupt enable and threshold, address-space identifier, and exception state;
+- profile, feature, address-width, topology, and implementation-identification control registers.
 
-| Profile | Software-visible target |
-|---|---|
-| M00 | MC68000 integer ISA, classic effective addresses, SR, exceptions, and 24-bit-visible compatibility behavior |
-| M10 | MC68010 control state, VBR, loop behavior, and restartable exception model |
-| M20 | MC68020 32-bit addressing, full extension-word effective addresses, later integer operations, and generation-specific frames |
-| M30 | MC68030 MMU/cache/control programming model and applicable M20 integer behavior |
-| M40 | MC68040 integer, MMU, cache, FPU, control, and precise exception programming model |
-| M60 | MC68060 architectural behavior, including its implemented/unimplemented instruction and exception contracts |
+Integer arithmetic wraps modulo its operand width unless the instruction contract says otherwise. Byte, word, long, and quad results are 8, 16, 32, and 64 bits. Ordinary byte, word, and long register results zero-extend to 64 bits; quad results replace all 64 bits. Sign extension is always explicit. Only `ADCX`, `SBCX`, and rotate-through-X operations read or write `X`; ordinary operations and `.F` forms preserve it.
 
-An implementation may physically expose more address bits than its current compatibility profile. It must not advertise a profile until the complete required architectural contract has passed the documented audit.
+M64K v1 includes thirty-two 64-bit floating-point registers `f0-f31` holding scalar IEEE-754 FP32/FP64 values. Their operation, NaN, rounding, exception, fused-operation, and context contracts are versioned with v1. Motorola extended-precision and packed floating formats are not part of v1.
 
-## Architectural state
+Architectural state changes become visible at retirement. Faulting and squashed operations MUST NOT publish register, control, or cache-maintenance effects. External stores that an explicitly restartable multi-access instruction has already committed are governed by that instruction's checkpoint contract.
 
-### Compatibility state
+## Addresses and byte order
 
-The compatibility register view is generation-specific. Its maximal planned M40/M60 view includes D0-D7, A0-A7, PC, SR, USP/ISP/MSP, VBR, SFC, DFC, cache controls, MMU roots and transparent-translation registers, MMUSR, eight extended-precision FP registers, FPCR, FPSR, FPIAR, and generation identity state.
+M64K v1 uses 48-bit canonical virtual addresses and implementation-discovered physical addresses from 36 through 48 bits. For a canonical virtual address, bits 63:48 MUST equal bit 47. Machine-mode physical execution before translation is enabled uses the same 64-bit address-generation rules and validates the implemented physical width before issuing a request. A non-canonical translated address or an out-of-range physical address raises an address exception before a memory request.
 
-Compatibility writes update the corresponding low-order native physical state only at retirement. Narrow compatibility results retain the exact Motorola-defined preservation or extension rule; they do not inherit a blanket native 64-bit rule. When this state is hosted by a 64-bit backend, Dn, An, and PC have zero upper halves at retirement and precise-exception boundaries, as specified by [execution-domains.md](execution-domains.md).
+The architecture is big-endian: the most significant byte of a scalar occupies the lowest address. Byte addresses increase monotonically through memory. Instruction fetch, scalar access, page-table walks, software-saved trap state, atomics, DMA-visible data, and MMIO use the same byte convention.
 
-### Native scalar state
+Unaligned byte accesses are always legal. The legal alignment of wider accesses is defined by each instruction class. Base loads and stores require natural alignment. A separately encoded unaligned normal-memory operation MAY decompose an access only if its contract guarantees precise faults and the access does not cross into a different memory type. Atomics and MMIO MUST be naturally aligned.
 
-The planned native scalar view contains:
+## Execution and memory
 
-- sixteen 64-bit data registers `D0-D15`;
-- sixteen 64-bit address/general address registers `A0-A15`;
-- a 64-bit program counter constrained by the active virtual-address width;
-- distinct user, supervisor, interrupt, and machine stack/control state as finalized by the privilege specification;
-- version, feature, address-width, endian, vector-length, topology, and implementation identity registers.
+Every base instruction is one naturally aligned 32-bit word. The first word also identifies extension-envelope instructions whose total length is 64, 96, or 128 bits. Reserved encodings raise the illegal-instruction exception and MUST NOT be reinterpreted according to implementation configuration.
 
-The compatibility-visible D0-D7/A0-A7 map to the low subset of native storage. This mapping is an implementation and context-management contract; it must not create partially visible upper halves when compatibility instructions retire or fault.
+Reset and early Machine-mode firmware may execute with translation disabled. The complete v1 architecture nevertheless includes the MMU, scalar floating point, TSO, and atomics. Core/thread count and cache sizes are implementation properties; the first product targets four discoverable cores and two independently schedulable hardware threads per core. Microarchitecture is not architectural.
 
-Native operand sizes include byte, word, long, and quad scalar forms. `.Q` denotes a 64-bit scalar operand only in native M64K encodings. Ordinary native `.L` data-register writes zero-extend to 64 bits; explicit sign-extending, address-arithmetic, and widening instructions retain operation-specific contracts recorded in the machine-readable ISA database. Compatibility `.L` remains exactly 32-bit.
+M64K v1 is not a single-thread architecture. From design stage D0, every public core, memory, interrupt, trap, maintenance, and retirement interface identifies core and hardware thread. A 1C1T configuration is only a validation projection of the same SMP/SMT-aware contracts.
 
-### Vector and matrix state
+## Extension boundary
 
-M64K-V is planned with 32 scalable vector registers and 8 predicate registers. Architectural VLEN is discoverable and ranges from 128 through 1024 bits in power-of-two implementations. Vector instructions must be independent of physical lane count and may execute in multiple beats. Restart rules, fault-only-first behavior, mask semantics, lane numbering, inactive-element policy, and context save/restore are required before the first encoding is frozen.
+Scalable vector, matrix/tile, little-endian, debug, and virtualization extensions are outside M64K v1. An extension specification MUST define state, instructions, context management, exception interaction, memory ordering, ABI use, discovery, and behavior when absent before an encoding is assigned.
 
-M64K-M is planned with eight tile registers. Tile dimensions, element type, accumulator precision, saturation/rounding behavior, memory layout, and interaction with M64K-V are explicit state; tiles do not silently alias scalar, FP, or vector registers.
+## Compatibility statement
 
-## Addressing and endian behavior
-
-Compatibility logical addresses remain 32 bits for M20 and later profiles, with M00 bus visibility constrained by profile rules. Native M64K initially targets 48-bit canonical virtual addresses. Bits above the implemented virtual width must equal the sign/canonical extension defined by the native address specification; non-canonical accesses fault before translation. Stable memory-system interfaces parameterize physical width from 32 through 48 bits, allowing implementations from 4 GiB through 256 TiB of physical address space without hard-coding a board capacity.
-
-Reset and all currently implemented execution are big-endian. Internal arrays store physical bytes with byte zero at the lowest address. Fetch, load/store, vector, matrix, page-table, stack-frame, and device units assemble bytes according to architectural state.
-
-M64K-LE is reserved for a future complete little-endian execution state. Its specification must cover instructions, data, exception frames, page tables, atomics, scalar/FP/vector/matrix lane interpretation, debugging, DMA, devices, firmware, and ABI. A privileged endian transition must serialize execution and make stale cache or translation interpretation impossible. External DDR wiring never defines architectural endian behavior.
-
-## Instruction encoding direction
-
-M68K encodings retain their profile-defined 16-bit-word format. The native M64K encoding space will be versioned and separately decoded. Line-A is the preferred exploration namespace because it is architecturally trapped in classic profiles, but no Line-A word becomes native merely by implementation convention. Allocation requires a published encoding table and collision proof for every compatibility profile.
-
-The native decoder target accepts instructions up to 16 bytes. Common scalar operations should remain compact, while extension words carry larger register indices, `.Q`, predicates, vector shape, or immediate data. Decoder structure must identify instruction length and faults before younger instructions can retire. Toolchain syntax, relocation behavior, disassembly, illegal encodings, and forward-compatible reserved fields are part of each encoding decision.
-
-## Execution implementation
-
-### Current reference pipeline
-
-The first-party M00 core is an in-order, single-issue implementation with precise state publication. It uses a decoupled line fetcher, variable-length instruction buffer, generated decode metadata, direct execution for common operations, and typed multi-cycle sequences for complex memory or iterative work.
-
-Microcode is an implementation mechanism, not a second public ISA. Multi-step, restartable, iterative, and sequencing-heavy instructions lower to symbolic typed micro-operations. Common arithmetic and logical instructions may execute directly when doing so reduces latency and critical depth without duplicating semantics. Both paths share the same ALU, address-generation, load/store, flag, exception, and retirement contracts.
-
-### Performance evolution
-
-The performance target is a decoupled, speculative frontend feeding a two-wide out-of-order backend with up to four decoded micro-operations delivered per cycle. Planned structures include branch prediction, instruction cache, translation lookaside buffers, physical-register renaming, integer and address-generation issue queues, load/store ordering, a reorder buffer, precise retirement, and replay after recoverable memory events.
-
-This is not implemented by widening the current state machine. Each stage is introduced behind architectural trace equivalence and precise-exception gates. The in-order core remains a readable reference implementation and differential oracle. Frequency claims require post-route evidence on a selected FPGA; the architectural target does not promise a MHz value.
-
-## Memory hierarchy, MMU, and ordering
-
-M40 compatibility targets separate instruction and data translation/cache behavior, including its ATCs, transparent translation, maintenance operations, page attributes, fault status, and exception frames. Native M64K uses an independently versioned page-table contract capable of the initial 48-bit virtual and physical widths. Compatibility and native TLB entries carry address-space, privilege, endian, page-size, access, and global metadata sufficient to prevent aliasing across modes and hardware threads.
-
-Private L1 caches connect through coherence endpoints. The exact cache sizes and associativity are implementation parameters; line size and architecturally observed maintenance semantics are versioned platform/architecture contracts. Instruction coherence after code modification, DMA coherence, page-table observation, and non-cacheable/device accesses must not depend on software accidentally using a uniprocessor path.
-
-The native memory model target is TSO. Loads, stores, atomics, fences, cache maintenance, MMIO, page-table updates, DMA, and instruction synchronization must have a single written ordering model. M00 TAS and M20 CAS/CAS2 use indivisible fabric transactions even in a single-core build. M64K-A extends atomics only after their success/failure results, alignment, exception, endian, cacheability, and ordering semantics are specified.
-
-## Exceptions, privilege, and precise retirement
-
-Every instruction carries its architectural PC, execution domain, profile/version, privilege, hardware-thread identity, and pending effects until retirement. Fetch, decode, execution, translation, cache, fabric, FPU, vector, and matrix units report structured fault records. The retirement boundary selects the architecturally oldest event, commits only permitted older effects, suppresses younger effects, and constructs the exact profile- or native-specific frame.
-
-Compatibility exceptions use the applicable generation contract, not a common invented frame. Native M64K will define a versioned frame containing enough state to restart scalar, vector, matrix, transactional memory, and mode-transition operations. Double-fault and machine-check behavior must be deterministic and testable. Interrupt routing includes target core, target hardware thread or thread policy, priority, vector/source identity, and privilege domain.
-
-## Floating point
-
-Compatibility FPU behavior follows the selected generation, including extended state, rounding modes, accrued/current exception flags, traps, packed/extended formats where required, and documented unimplemented-operation handling. Host floating-point types are never a specification oracle.
-
-The implementation uses an explicit recoded internal format and shares precise retirement with the integer backend. Native FP operations may add wider scalar or vector capabilities only behind separate feature bits and ABI contracts.
-
-## Multiprocessing and multithreading
-
-M64K-SMP consists of private cores and L1 caches, coherent endpoints, a shared coherence fabric and optional last-level cache, per-core reset and identity, routed interrupts/IPIs, per-core timers, and firmware-defined secondary-core release. Core count is discoverable; no public interface assumes one or two cores.
-
-SMP does not inherently require new ordinary arithmetic opcodes. It requires an architected memory model, atomic/fence operations, cache and TLB maintenance, interrupt routing, topology discovery, and firmware/kernel boot contracts.
-
-M64K-MT follows a working SMP implementation. Each hardware thread has complete precise architectural state and an independently addressable interrupt/debug/context identity. Shared frontend, execution, cache, predictor, and translation resources require partitioning or tagging. The initial implementation target is two hardware threads per core, but interface widths must remain parameterized.
-
-## Debug and verification visibility
-
-Implementations expose an architectural retirement trace rather than requiring verification to inspect simulator hierarchy. Trace records identify core, hardware thread, execution domain, PC, instruction bytes, decoded operation, register/memory effects, exception, and retirement order. Debug context includes compatibility, native scalar, MMU, FPU, vector, matrix, interrupt, and thread state.
-
-No performance optimization may weaken precise exceptions or make architectural correctness depend on a testbench. The in-order reference, generated instruction contracts, directed matrices, randomized differential testing, formal properties, firmware, and Linux are complementary evidence; primary manuals or versioned M64K specifications remain the source of truth.
+M64K v1 defines a new ISA, ELF machine identity, and ABI. M68K instructions, exception frames, status registers, and executable formats are not recognized in native execution. A system MAY contain a separately specified compatibility processor or translation layer, but it MUST NOT advertise that facility as part of M64K v1.
